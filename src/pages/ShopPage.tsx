@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';   
 import { Search, X } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
-import { products, categories } from '@/data/products';
+import { categories } from '@/data/products';
+import { getProducts } from '@/lib/products';
 import type { Product } from '@/types';
 
 export function ShopPage({
@@ -16,6 +17,18 @@ export function ShopPage({
   const [filter, setFilter] = useState(initialFilter);
   const [query, setQuery] = useState(initialQuery);
 
+    const [products, setProducts] = useState<Product[]>([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  async function loadProducts() {
+    const data = await getProducts();
+    setProducts(data);
+    setLoading(false);
+  }
+
+  loadProducts();
+}, []);   
   const filtered = useMemo(() => {
     let list = products;
     if (filter === 'new') list = list.filter((p) => p.isNew);
@@ -29,7 +42,7 @@ export function ShopPage({
       );
     }
     return list;
-  }, [filter, query]);
+  }, [products, filter, query]);
 
   return (
     <div className="pt-16 md:pt-20">
@@ -106,9 +119,23 @@ export function ShopPage({
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 md:grid-cols-3 lg:grid-cols-4">
-            {filtered.map((p) => (
-              <ProductCard key={p.id} product={p} onQuickView={onQuickView} />
-            ))}
+            {loading ? (
+    <p className="col-span-full py-12 text-center">
+      Loading products...
+    </p>
+  ) : filtered.length === 0 ? (
+    <p className="col-span-full py-12 text-center">
+      No products found.
+    </p>
+  ) : (
+    filtered.map((p) => (
+      <ProductCard
+        key={p.id}
+        product={p}
+        onQuickView={onQuickView}
+      />
+    ))
+  )}
           </div>
         )}
       </section>
