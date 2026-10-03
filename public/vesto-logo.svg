@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 430" role="img" aria-labelledby="title desc">
+  <title id="title">VESTO Addiction Groups</title>
+  <desc id="desc">VESTO Addiction Groups logo</desc>
+  <rect width="1400" height="430" fill="#ffffff"/>
+  <g fill="#211f20">
+    <path d="M0 16h82l92 195L266 16h82L174 365z"/>
+    <path d="M365 16h247l-30 63H445v70h153v62H445v87h167l-31 67H365z"/>
+    <path d="M660 16h230l-31 63H732c-19 0-29 8-29 21 0 9 6 17 19 28l105 90c42 36 61 70 61 111 0 33-12 36-28 36H660l30-66h134c20 0 30-8 30-22 0-12-8-22-27-38l-99-84c-47-40-68-76-68-115 0-15 3-24 10-24z"/>
+    <path d="M900 16h276l-32 63h-91v286h-81V79h-102z"/>
+    <path fill-rule="evenodd" d="M1190 16h65c91 0 145 67 145 174s-54 175-145 175h-65c-91 0-145-68-145-175s54-174 145-174zm28 64c-51 0-81 40-81 110s30 111 81 111h9c51 0 81-41 81-111s-30-110-81-110z" clip-rule="evenodd"/>
+  </g>
+  <text x="700" y="418" text-anchor="middle" fill="#211f20" font-family="Arial, Helvetica, sans-serif" font-size="37" font-weight="700" letter-spacing="11">ADDICTION GROUPS</text>
+</svg>

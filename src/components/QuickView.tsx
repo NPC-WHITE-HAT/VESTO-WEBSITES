@@ -1,0 +1,157 @@
+import { useEffect, useState } from 'react';
+import { X, Check } from 'lucide-react';
+import type { Product } from '@/types';
+import { Link } from '@/router';
+import { formatPrice } from '@/data/products';
+import { useCart } from '@/context/CartContext';
+import { navigate } from '@/router';
+
+export function QuickView({
+  product,
+  onClose,
+}: {
+  product: Product | null;
+  onClose: () => void;
+}) {
+  const { addItem } = useCart();
+  const [size, setSize] = useState('');
+  const [color, setColor] = useState('');
+  const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    if (product) {
+      setSize(product.sizes[1] ?? product.sizes[0]);
+      setColor(product.colors[0]?.name ?? '');
+      setAdded(false);
+    }
+  }, [product]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  if (!product) return null;
+
+  const addToCart = () => {
+    addItem(product, size, color, 1);
+    setAdded(true);
+    setTimeout(onClose, 900);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center">
+      <div
+        className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative z-10 max-h-[92vh] w-full max-w-3xl overflow-y-auto bg-ink-50 animate-scale-in">
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center bg-ink-50/80 backdrop-blur transition-colors hover:bg-ink-200"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="grid sm:grid-cols-2">
+          <div className="aspect-[3/4] sm:aspect-auto">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <div className="flex flex-col p-6 sm:p-8">
+            <p className="text-[11px] uppercase tracking-widest text-ink-400">
+              {product.category}
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-ink-900">
+              {product.name}
+            </h2>
+            <p className="mt-2 text-lg font-semibold text-ink-800">
+              {formatPrice(product.price)}
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-ink-600">
+              {product.description}
+            </p>
+
+            <div className="mt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+                Color
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {product.colors.map((c) => (
+                  <button
+                    key={c.name}
+                    onClick={() => setColor(c.name)}
+                    className={`flex items-center gap-2 border px-3 py-1.5 text-xs transition-colors ${
+                      color === c.name
+                        ? 'border-ink-900 bg-ink-900 text-ink-50'
+                        : 'border-ink-200 text-ink-700 hover:border-ink-400'
+                    }`}
+                  >
+                    <span
+                      className="h-3 w-3 rounded-full border border-ink-300"
+                      style={{ backgroundColor: c.hex }}
+                    />
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+                Size
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {product.sizes.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSize(s)}
+                    className={`min-w-10 border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      size === s
+                        ? 'border-ink-900 bg-ink-900 text-ink-50'
+                        : 'border-ink-200 text-ink-700 hover:border-ink-400'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-7 flex flex-col gap-2 sm:flex-row">
+              <button
+                onClick={addToCart}
+                className="btn-primary flex-1"
+              >
+                {added ? (
+                  <>
+                    <Check className="h-4 w-4" /> Added
+                  </>
+                ) : (
+                  'Add to Cart'
+                )}
+              </button>
+              <Link
+                to={`/product?id=${product.id}`}
+                onClick={onClose}
+                className="btn-outline flex-1"
+              >
+                Details
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export { navigate };
