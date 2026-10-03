@@ -4,14 +4,14 @@ import { Accordion, type AccordionLink } from '@/components/Accordion';
 import { ProductCard } from '@/components/ProductCard';
 import type { Product } from '@/types';
 import {
-  products,
-  newArrivals,
   STORE_ADDRESS,
   GOOGLE_MAPS_URL,
   INSTAGRAM_URL,
   WHATSAPP_NUMBER,
 } from '@/data/products';
 
+import { getProducts } from '@/lib/products';
+import { useEffect, useState } from 'react';  
 const HERO_IMG =
   'https://images.pexels.com/photos/27969069/pexels-photo-27969069.jpeg?auto=compress&cs=tinysrgb&w=2200';
 
@@ -59,14 +59,24 @@ const INFORMATION_ITEMS: AccordionLink[] = [
 ];
 
 export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void }) {
+   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadProducts() {
+      const data = await getProducts();
+      setProducts(data);
+      setLoading(false);
+    }
+
+    loadProducts();
+  }, []);
   const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
     "Hi VESTO, I'd like to know more about your collection.",
   )}`;
 
-  const featured = FEATURED_IDS.map((id) => products.find((p) => p.id === id)).filter(
-    (p): p is Product => p !== undefined,
-  );
-
+  const featured = products.slice(0, 6);
+const newArrivals = products.filter((p) => p.isNew).slice(0, 4);
   return (
     <div>
       {/* HERO */}
@@ -190,7 +200,7 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
           </Link>
         </div>
         <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 md:grid-cols-4">
-          {newArrivals.slice(0, 4).map((p, i) => (
+          {newArrivals.map((p, i) => (
             <div
               key={p.id}
               className="animate-fade-up"
