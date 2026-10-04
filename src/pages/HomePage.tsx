@@ -4,6 +4,7 @@ import { Accordion, type AccordionLink } from '@/components/Accordion';
 import { ProductCard } from '@/components/ProductCard';
 import type { Product } from '@/types';
 import {
+  newArrivals as existingNewArrivals,
   STORE_ADDRESS,
   GOOGLE_MAPS_URL,
   INSTAGRAM_URL,
@@ -76,7 +77,13 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
   )}`;
 
   const featured = products.slice(0, 6);
-const newArrivals = products.filter((p) => p.isNew).slice(0, 4);
+  const newArrivals = [
+    ...products.filter((product) => product.isNew),
+    ...existingNewArrivals.filter(
+      (product) =>
+        product.isNew && !products.some((loadedProduct) => loadedProduct.id === product.id),
+    ),
+  ];
   return (
     <div>
       {/* HERO */}
