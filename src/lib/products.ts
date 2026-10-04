@@ -17,7 +17,7 @@ export async function getProducts(): Promise<Product[]> {
     name: product.name,
     price: product.price,
     category: product.category,
-    isNew: product.isnew,
+    isNew: product.is_new,
     image: product.image,
     description: product.description,
     colors: product.colors || [],
