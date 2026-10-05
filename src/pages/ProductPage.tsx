@@ -170,6 +170,15 @@ export function ProductPage({
                 'Add to Cart'
               )}
             </button>
+            <button
+              onClick={() => {
+                addToCart();
+                navigate('/checkout');
+              }}
+              className="btn-outline"
+            >
+              Proceed to Checkout
+            </button>
             <a
               href={waLink}
               target="_blank"
