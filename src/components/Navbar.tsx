@@ -35,10 +35,10 @@ export function Navbar() {
   return (
     <>
       <header
-        className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
+        className={`fixed inset-x-0 top-0 z-50 bg-white text-ink-900 transition-all duration-500 ${
           scrolled
-            ? 'bg-ink-50/95 backdrop-blur-md shadow-[0_1px_0_0_rgba(0,0,0,0.06)]'
-            : 'bg-transparent'
+            ? 'backdrop-blur-md shadow-[0_1px_0_0_rgba(0,0,0,0.06)]'
+            : ''
         }`}
       >
         <nav className="container-vesto flex h-16 items-center justify-between md:h-20">
