@@ -3,7 +3,6 @@ import { CartProvider } from '@/context/CartContext';
 import { useRouter } from '@/router';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { WhatsAppFloat } from '@/components/WhatsAppFloat';
 import { QuickView } from '@/components/QuickView';
 import { HomePage } from '@/pages/HomePage';
 import { ShopPage } from '@/pages/ShopPage';
@@ -58,7 +57,6 @@ function App() {
         <Navbar />
         <main className="flex-1">{renderPage()}</main>
         <Footer />
-        <WhatsAppFloat />
         <QuickView product={quickView} onClose={() => setQuickView(null)} />
       </div>
     </CartProvider>
