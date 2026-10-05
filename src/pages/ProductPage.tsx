@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Minus, Plus, MessageCircle, ChevronLeft } from 'lucide-react';
-import { getProductById, formatPrice, WHATSAPP_NUMBER } from '@/data/products';
+import { formatPrice, WHATSAPP_NUMBER } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 import { Link, navigate } from '@/router';
 import { ProductCard } from '@/components/ProductCard';
 import { products } from '@/data/products';
+import { getProducts } from '@/lib/products';
 import type { Product } from '@/types';
 
 export function ProductPage({
@@ -14,12 +15,52 @@ export function ProductPage({
   id: string;
   onQuickView: (p: Product) => void;
 }) {
-  const product = getProductById(id);
+  const [product, setProduct] = useState<Product | undefined>();
+  const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
   const [size, setSize] = useState(product?.sizes[1] ?? product?.sizes[0] ?? '');
   const [color, setColor] = useState(product?.colors[0]?.name ?? '');
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProducts() {
+      setLoading(true);
+      setProduct(undefined);
+
+      try {
+        const data = await getProducts();
+        if (!cancelled) setProduct(data.find((item) => item.id === id));
+      } catch (error) {
+        console.error('Error loading product details:', error);
+        if (!cancelled) setProduct(undefined);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadProducts();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (product) {
+      setSize(product.sizes[1] ?? product.sizes[0] ?? '');
+      setColor(product.colors[0]?.name ?? '');
+    }
+  }, [product]);
+
+  if (loading) {
+    return (
+      <div className="container-vesto flex min-h-[60vh] items-center justify-center pt-16 text-center md:pt-20">
+        <p className="text-sm text-ink-500">Loading product...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
