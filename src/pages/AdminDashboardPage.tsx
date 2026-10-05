@@ -74,6 +74,13 @@ interface ProductForm {
   fabric: string;
 }
 
+interface CloudinaryUploadResponse {
+  secure_url?: string;
+  error?: {
+    message?: string;
+  };
+}
+
 const STATUS_STYLES: Record<string, string> = {
   verification_pending: 'bg-amber-100 text-amber-800',
   paid: 'bg-green-100 text-green-800',
@@ -997,6 +1004,54 @@ function ProductModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState('');
+
+  const uploadImage = async (file: File) => {
+    setUploadingImage(true);
+    setImageUploadError('');
+
+    const body = new FormData();
+    body.append('file', file);
+    body.append('upload_preset', 'vesto_products');
+
+    try {
+      const response = await fetch(
+        'https://api.cloudinary.com/v1_1/szdhtxss/image/upload',
+        {
+          method: 'POST',
+          body,
+        },
+      );
+      const result: CloudinaryUploadResponse = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error?.message || `Image upload failed (${response.status}).`,
+        );
+      }
+
+      const secureUrl = result.secure_url;
+      if (!secureUrl) {
+        throw new Error('Cloudinary did not return a secure image URL.');
+      }
+
+      setForm((currentForm) => ({
+        ...currentForm,
+        image: secureUrl,
+      }));
+    } catch (error) {
+      console.error('Cloudinary image upload failed:', error);
+      setImageUploadError(
+        error instanceof Error
+          ? error.message
+          : 'Image upload failed. Please try again.',
+      );
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[70] overflow-y-auto bg-ink-950/40 p-4">
 
@@ -1111,6 +1166,7 @@ function ProductModal({
 
             <input
               value={form.image}
+              disabled={uploadingImage}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -1120,6 +1176,36 @@ function ProductModal({
               placeholder="https://images.pexels.com/..."
               className="input-vesto mt-1.5"
             />
+
+            {!editing && (
+              <>
+                <label className="mt-3 block text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+                  Or upload an image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingImage}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = '';
+                      if (file) void uploadImage(file);
+                    }}
+                    className="mt-1.5 block w-full text-sm normal-case tracking-normal text-ink-700"
+                  />
+                </label>
+
+                {uploadingImage && (
+                  <p className="mt-2 text-sm text-ink-500">
+                    Uploading image to Cloudinary...
+                  </p>
+                )}
+                {imageUploadError && (
+                  <p role="alert" className="mt-2 text-sm text-red-600">
+                    {imageUploadError} Select an image to try again.
+                  </p>
+                )}
+              </>
+            )}
 
           </div>
 
@@ -1251,10 +1337,15 @@ function ProductModal({
 
           <button
             onClick={onSave}
-            disabled={saving}
+            disabled={saving || uploadingImage || !!imageUploadError}
             className="btn-primary flex-1"
           >
-            {saving ? (
+            {uploadingImage ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Uploading image...
+              </>
+            ) : saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Saving...
