@@ -24,3 +24,11 @@ export interface CartItem {
   color: string;
   quantity: number;
 }
+
+export interface Offer {
+  id: string;
+  created_at: string;
+  image: string;
+  position: number;
+  active: boolean;
+}

@@ -13,12 +13,22 @@ import {
   Trash2,
   Package,
   Save,
+  MoveUp,
+  MoveDown,
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import { navigate } from '@/router';
 import { formatPrice } from '@/data/products';
 import { getUpiConfig, updateUpiConfig } from '@/lib/upi';
+import { uploadImage as uploadCloudinaryImage } from '@/lib/cloudinary';
+import {
+  createOffer,
+  deleteOffer,
+  getOffers,
+  updateOffer,
+} from '@/lib/offers';
+import type { Offer } from '@/types';
 
 interface OrderRow {
   id: string;
@@ -74,13 +84,6 @@ interface ProductForm {
   fabric: string;
 }
 
-interface CloudinaryUploadResponse {
-  secure_url?: string;
-  error?: {
-    message?: string;
-  };
-}
-
 const STATUS_STYLES: Record<string, string> = {
   verification_pending: 'bg-amber-100 text-amber-800',
   paid: 'bg-green-100 text-green-800',
@@ -120,11 +123,18 @@ function StatusBadge({ status }: { status: string }) {
 export function AdminDashboardPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [products, setProducts] = useState<ProductRow[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [offersLoading, setOffersLoading] = useState(true);
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [offerActionLoading, setOfferActionLoading] = useState<string | null>(null);
+  const [offerError, setOfferError] = useState('');
+  const [offerSuccess, setOfferSuccess] = useState('');
+  const [newBannerFile, setNewBannerFile] = useState<File | null>(null);
+  const [newBannerPreview, setNewBannerPreview] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const [showConfig, setShowConfig] = useState(false);
@@ -139,7 +149,7 @@ export function AdminDashboardPage() {
   const [savingProduct, setSavingProduct] = useState(false);
 
   const [activeTab, setActiveTab] =
-    useState<'orders' | 'products'>('orders');
+    useState<'orders' | 'products' | 'banners'>('orders');
 
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -187,6 +197,25 @@ export function AdminDashboardPage() {
     setProductsLoading(false);
   }, []);
 
+  const fetchOffers = useCallback(async () => {
+    setOffersLoading(true);
+
+    try {
+      const data = await getOffers();
+      setOffers(data);
+      setOfferError('');
+    } catch (error) {
+      console.error('Failed to fetch homepage banners:', error);
+      setOfferError(
+        error instanceof Error
+          ? error.message
+          : 'Could not load homepage banners.',
+      );
+    } finally {
+      setOffersLoading(false);
+    }
+  }, []);
+
   /*
    * -------------------------
    * AUTH
@@ -201,9 +230,21 @@ export function AdminDashboardPage() {
         setAuthChecked(true);
         fetchOrders();
         fetchProducts();
+        fetchOffers();
       }
     });
-  }, [fetchOrders, fetchProducts]);
+  }, [fetchOrders, fetchProducts, fetchOffers]);
+
+  useEffect(() => {
+    if (!newBannerFile) {
+      setNewBannerPreview('');
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(newBannerFile);
+    setNewBannerPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [newBannerFile]);
 
   /*
    * -------------------------
@@ -411,6 +452,124 @@ export function AdminDashboardPage() {
     setActionLoading(null);
   };
 
+  const addBanner = async () => {
+    if (!newBannerFile) {
+      setOfferError('Choose an image before adding a banner.');
+      return;
+    }
+
+    setOfferActionLoading('new');
+    setOfferError('');
+    setOfferSuccess('');
+
+    try {
+      const image = await uploadCloudinaryImage(newBannerFile, 'vesto_offers');
+      const position =
+        offers.reduce((highest, offer) => Math.max(highest, offer.position), -1) +
+        1;
+      await createOffer({ image, position, active: true });
+      setNewBannerFile(null);
+      setOfferSuccess('Homepage banner added and activated.');
+      await fetchOffers();
+    } catch (error) {
+      console.error('Failed to add homepage banner:', error);
+      setOfferError(
+        error instanceof Error ? error.message : 'Could not add banner.',
+      );
+    } finally {
+      setOfferActionLoading(null);
+    }
+  };
+
+  const replaceBanner = async (offer: Offer, file: File) => {
+    setOfferActionLoading(`replace-${offer.id}`);
+    setOfferError('');
+    setOfferSuccess('');
+
+    try {
+      const image = await uploadCloudinaryImage(file, 'vesto_offers');
+      await updateOffer(offer.id, { image });
+      setOfferSuccess('Banner image replaced.');
+      await fetchOffers();
+    } catch (error) {
+      console.error('Failed to replace homepage banner:', error);
+      setOfferError(
+        error instanceof Error ? error.message : 'Could not replace banner.',
+      );
+    } finally {
+      setOfferActionLoading(null);
+    }
+  };
+
+  const toggleBanner = async (offer: Offer) => {
+    setOfferActionLoading(`toggle-${offer.id}`);
+    setOfferError('');
+    setOfferSuccess('');
+
+    try {
+      await updateOffer(offer.id, { active: !offer.active });
+      setOfferSuccess(
+        `Banner ${offer.active ? 'deactivated' : 'activated'}.`,
+      );
+      await fetchOffers();
+    } catch (error) {
+      console.error('Failed to update homepage banner:', error);
+      setOfferError(
+        error instanceof Error ? error.message : 'Could not update banner.',
+      );
+    } finally {
+      setOfferActionLoading(null);
+    }
+  };
+
+  const moveBanner = async (offer: Offer, direction: -1 | 1) => {
+    const index = offers.findIndex((item) => item.id === offer.id);
+    const neighbor = offers[index + direction];
+    if (!neighbor) return;
+
+    setOfferActionLoading(`move-${offer.id}`);
+    setOfferError('');
+    setOfferSuccess('');
+
+    try {
+      await updateOffer(offer.id, { position: neighbor.position });
+      await updateOffer(neighbor.id, { position: offer.position });
+      setOfferSuccess('Banner order updated.');
+      await fetchOffers();
+    } catch (error) {
+      console.error('Failed to reorder homepage banners:', error);
+      setOfferError(
+        error instanceof Error ? error.message : 'Could not reorder banners.',
+      );
+      await fetchOffers();
+    } finally {
+      setOfferActionLoading(null);
+    }
+  };
+
+  const removeBanner = async (offer: Offer) => {
+    if (!window.confirm('Delete this homepage banner? This cannot be undone.')) {
+      return;
+    }
+
+    setOfferActionLoading(`delete-${offer.id}`);
+    setOfferError('');
+    setOfferSuccess('');
+
+    try {
+      await deleteOffer(offer.id);
+      setOfferSuccess('Banner deleted.');
+      await fetchOffers();
+    } catch (error) {
+      console.error('Failed to delete homepage banner:', error);
+      setOfferError(
+        error instanceof Error ? error.message : 'Could not delete banner.',
+      );
+    } finally {
+      setOfferActionLoading(null);
+    }
+  };
+
   if (!authChecked) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center pt-16 md:pt-20">
@@ -440,6 +599,7 @@ export function AdminDashboardPage() {
               onClick={() => {
                 fetchOrders();
                 fetchProducts();
+                fetchOffers();
               }}
               className="btn-ghost"
             >
@@ -490,6 +650,17 @@ export function AdminDashboardPage() {
             }`}
           >
             Products
+          </button>
+
+          <button
+            onClick={() => setActiveTab('banners')}
+            className={`px-5 py-3 text-[11px] font-semibold uppercase tracking-widest ${
+              activeTab === 'banners'
+                ? 'border-b-2 border-ink-900 text-ink-900'
+                : 'text-ink-500'
+            }`}
+          >
+            Homepage Banners
           </button>
 
         </div>
@@ -953,6 +1124,186 @@ export function AdminDashboardPage() {
           </div>
         )}
 
+        {activeTab === 'banners' && (
+          <div className="mt-8">
+            <div>
+              <p className="section-eyebrow">Homepage</p>
+              <h2 className="display-heading mt-2 text-2xl md:text-3xl">
+                HOMEPAGE BANNERS
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-500">
+                Active banners appear in the homepage carousel, ordered by
+                position. Images are uploaded to Cloudinary before a banner is
+                saved.
+              </p>
+            </div>
+
+            {offerError && (
+              <p role="alert" className="mt-5 border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {offerError}
+              </p>
+            )}
+            {offerSuccess && (
+              <p role="status" className="mt-5 border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                {offerSuccess}
+              </p>
+            )}
+
+            <div className="mt-6 grid gap-5 border border-ink-200 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+                  Add a banner image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={offerActionLoading === 'new'}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0] ?? null;
+                      event.currentTarget.value = '';
+                      setOfferError('');
+                      setOfferSuccess('');
+                      setNewBannerFile(file);
+                    }}
+                    className="mt-2 block w-full text-sm normal-case tracking-normal text-ink-700"
+                  />
+                </label>
+                <p className="mt-2 text-xs text-ink-500">
+                  Use a wide landscape image for the best desktop and mobile
+                  crop.
+                </p>
+                {newBannerPreview && (
+                  <img
+                    src={newBannerPreview}
+                    alt="New banner preview"
+                    className="mt-4 aspect-[2.8/1] w-full object-cover sm:max-w-xl"
+                  />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={addBanner}
+                disabled={!newBannerFile || offerActionLoading === 'new'}
+                className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {offerActionLoading === 'new' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {offerActionLoading === 'new'
+                  ? 'Uploading and saving'
+                  : 'Add Banner'}
+              </button>
+            </div>
+
+            {offersLoading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="h-6 w-6 animate-spin text-ink-400" />
+              </div>
+            ) : offers.length === 0 ? (
+              <p className="py-16 text-center text-sm text-ink-500">
+                No homepage banners yet. Add an image above to get started.
+              </p>
+            ) : (
+              <div className="mt-6 space-y-4">
+                {offers.map((offer, index) => (
+                  <article
+                    key={offer.id}
+                    className="grid gap-4 border border-ink-200 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+                  >
+                    <div className="min-w-0">
+                      <img
+                        src={offer.image}
+                        alt={`Homepage banner ${index + 1} preview`}
+                        className="aspect-[2.8/1] w-full bg-ink-100 object-cover"
+                      />
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-widest ${
+                            offer.active ? 'text-green-700' : 'text-ink-400'
+                          }`}
+                        >
+                          {offer.active ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className="text-xs text-ink-400">
+                          Position {offer.position + 1}
+                        </span>
+                      </div>
+                      <label className="mt-3 block text-xs font-semibold uppercase tracking-widest text-ink-500">
+                        Replace image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={offerActionLoading === `replace-${offer.id}`}
+                          onChange={(event) => {
+                            const file = event.currentTarget.files?.[0];
+                            event.currentTarget.value = '';
+                            if (file) void replaceBanner(offer, file);
+                          }}
+                          className="mt-1.5 block w-full text-sm normal-case tracking-normal text-ink-700"
+                        />
+                        {offerActionLoading === `replace-${offer.id}` && (
+                          <span className="mt-1 block font-normal normal-case tracking-normal text-ink-500">
+                            Uploading replacement to Cloudinary...
+                          </span>
+                        )}
+                      </label>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 md:max-w-44 md:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => void moveBanner(offer, -1)}
+                        disabled={
+                          index === 0 ||
+                          offerActionLoading === `move-${offer.id}`
+                        }
+                        className="inline-flex items-center gap-1 border border-ink-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider hover:border-ink-900 disabled:opacity-40"
+                      >
+                        <MoveUp className="h-3.5 w-3.5" />
+                        Move Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void moveBanner(offer, 1)}
+                        disabled={
+                          index === offers.length - 1 ||
+                          offerActionLoading === `move-${offer.id}`
+                        }
+                        className="inline-flex items-center gap-1 border border-ink-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider hover:border-ink-900 disabled:opacity-40"
+                      >
+                        <MoveDown className="h-3.5 w-3.5" />
+                        Move Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void toggleBanner(offer)}
+                        disabled={offerActionLoading === `toggle-${offer.id}`}
+                        className="border border-ink-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider hover:border-ink-900 disabled:opacity-40"
+                      >
+                        {offer.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void removeBanner(offer)}
+                        disabled={offerActionLoading === `delete-${offer.id}`}
+                        className="inline-flex items-center gap-1 border border-red-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-red-700 hover:border-red-700 disabled:opacity-40"
+                      >
+                        {offerActionLoading === `delete-${offer.id}` ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </section>
 
       {/* PRODUCT MODAL */}
@@ -1011,31 +1362,8 @@ function ProductModal({
     setUploadingImage(true);
     setImageUploadError('');
 
-    const body = new FormData();
-    body.append('file', file);
-    body.append('upload_preset', 'vesto_products');
-
     try {
-      const response = await fetch(
-        'https://api.cloudinary.com/v1_1/szdhtxss/image/upload',
-        {
-          method: 'POST',
-          body,
-        },
-      );
-      const result: CloudinaryUploadResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.error?.message || `Image upload failed (${response.status}).`,
-        );
-      }
-
-      const secureUrl = result.secure_url;
-      if (!secureUrl) {
-        throw new Error('Cloudinary did not return a secure image URL.');
-      }
-
+      const secureUrl = await uploadCloudinaryImage(file, 'vesto_products');
       setForm((currentForm) => ({
         ...currentForm,
         image: secureUrl,

@@ -1,8 +1,16 @@
-import { ArrowRight, MapPin, Phone, MessageCircle, Instagram } from 'lucide-react';
+import {
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Phone,
+  MessageCircle,
+  Instagram,
+} from 'lucide-react';
 import { Link } from '@/router';
 import { Accordion, type AccordionLink } from '@/components/Accordion';
 import { ProductCard } from '@/components/ProductCard';
-import type { Product } from '@/types';
+import type { Offer, Product } from '@/types';
 import {
   newArrivals as existingNewArrivals,
   STORE_ADDRESS,
@@ -12,9 +20,8 @@ import {
 } from '@/data/products';
 
 import { getProducts } from '@/lib/products';
-import { useEffect, useState } from 'react';  
-const HERO_IMG =
-  'https://images.pexels.com/photos/27969069/pexels-photo-27969069.jpeg?auto=compress&cs=tinysrgb&w=2200';
+import { getActiveOffers } from '@/lib/offers';
+import { useEffect, useState } from 'react';
 
 const STORE_CTA_IMG =
   'https://images.pexels.com/photos/3839432/pexels-photo-3839432.jpeg?auto=compress&cs=tinysrgb&w=1600';
@@ -60,8 +67,12 @@ const INFORMATION_ITEMS: AccordionLink[] = [
 ];
 
 export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void }) {
-   const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banners, setBanners] = useState<Offer[]>([]);
+  const [currentBanner, setCurrentBanner] = useState(0);
+  const [bannerHovered, setBannerHovered] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
     async function loadProducts() {
@@ -72,6 +83,45 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
 
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getActiveOffers()
+      .then((offers) => {
+        if (!cancelled) setBanners(offers);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load homepage banners:', error);
+        if (!cancelled) setBanners([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateMotionPreference = () =>
+      setReducedMotion(motionPreference.matches);
+
+    updateMotionPreference();
+    motionPreference.addEventListener('change', updateMotionPreference);
+
+    return () =>
+      motionPreference.removeEventListener('change', updateMotionPreference);
+  }, []);
+
+  useEffect(() => {
+    if (banners.length < 2 || bannerHovered || reducedMotion) return;
+
+    const timer = window.setInterval(() => {
+      setCurrentBanner((current) => (current + 1) % banners.length);
+    }, 4500);
+
+    return () => window.clearInterval(timer);
+  }, [banners.length, bannerHovered, reducedMotion, currentBanner]);
   const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
     "Hi VESTO, I'd like to know more about your collection.",
   )}`;
@@ -86,48 +136,85 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
   ];
   return (
     <div>
-      {/* HERO */}
-      <section className="relative h-[88svh] min-h-[560px] w-full overflow-hidden md:h-[100svh]">
-        <img
-          src={HERO_IMG}
-          alt="VESTO men's fashion campaign"
-          className="absolute inset-0 h-full w-full object-cover object-[30%_center] md:object-[62%_30%]"
-        />
-        {/* Left-to-right dark gradient for text legibility; model stays visible on the right */}
-        <div className="absolute inset-0 bg-gradient-to-r from-ink-950/80 via-ink-950/30 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-950/50 via-transparent to-ink-950/20" />
-        <div className="relative z-10 flex h-full flex-col justify-end pb-12 md:justify-center md:pb-0">
-          <div className="container-vesto">
-            <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-ink-100/90 animate-fade-in">
-              Perambur • Chennai
-            </p>
-            <h1 className="display-heading text-5xl text-ink-50 sm:text-7xl md:text-8xl lg:text-9xl animate-fade-up">
-              MEN'S STYLE.
-              <br />
-              MADE SIMPLE.
-            </h1>
-            <p className="mt-5 max-w-md text-sm leading-relaxed text-ink-100/90 md:text-base animate-fade-up [animation-delay:0.15s]">
-              Contemporary men's clothing for everyday confidence.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row animate-fade-up [animation-delay:0.3s]">
-              <Link
-                to="/shop"
-                className="btn-primary bg-ink-50 text-ink-900 hover:bg-white"
-              >
-                Shop Collection <ArrowRight className="h-4 w-4" />
-              </Link>
-              <a
-                href={GOOGLE_MAPS_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-outline border-ink-100/40 text-ink-50 hover:bg-ink-50 hover:text-ink-900"
-              >
-                Visit Our Store <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
+      {banners.length > 0 ? (
+        <section
+          aria-label="VESTO promotions"
+          className="relative w-full overflow-hidden"
+          onMouseEnter={() => setBannerHovered(true)}
+          onMouseLeave={() => setBannerHovered(false)}
+        >
+          <div
+            className={`flex aspect-[4/3] w-full sm:aspect-[16/9] lg:aspect-[2.8/1] ${
+              reducedMotion ? '' : 'transition-transform duration-700 ease-in-out'
+            }`}
+            style={{ transform: `translateX(-${currentBanner * 100}%)` }}
+          >
+            {banners.map((banner, index) => (
+              <img
+                key={banner.id}
+                src={banner.image}
+                alt={`VESTO promotional banner ${index + 1}`}
+                className="h-full w-full shrink-0 object-cover"
+                fetchPriority={index === 0 ? 'high' : 'auto'}
+              />
+            ))}
           </div>
-        </div>
-      </section>
+          {banners.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous banner"
+                onClick={() =>
+                  setCurrentBanner(
+                    (current) => (current - 1 + banners.length) % banners.length,
+                  )
+                }
+                className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 text-ink-900 transition-colors hover:bg-white md:left-8"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next banner"
+                onClick={() =>
+                  setCurrentBanner((current) => (current + 1) % banners.length)
+                }
+                className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 text-ink-900 transition-colors hover:bg-white md:right-8"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+                {banners.map((banner, index) => (
+                  <button
+                    key={banner.id}
+                    type="button"
+                    aria-label={`Show banner ${index + 1}`}
+                    aria-current={index === currentBanner}
+                    onClick={() => setCurrentBanner(index)}
+                    className={`h-2 rounded-full transition-all ${
+                      index === currentBanner
+                        ? 'w-6 bg-white'
+                        : 'w-2 bg-white/60 hover:bg-white'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      ) : (
+        <section className="flex min-h-56 w-full items-center justify-center bg-ink-100 px-5 py-14 text-center md:min-h-72">
+          <div>
+            <p className="section-eyebrow">VESTO · Perambur, Chennai</p>
+            <h1 className="display-heading mt-3 text-3xl md:text-5xl">
+              FIND YOUR EVERYDAY STYLE.
+            </h1>
+            <Link to="/shop" className="btn-primary mt-6">
+              Shop Collection <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* SHOP BY CATEGORY */}
       <section className="container-vesto py-16 md:py-24">
