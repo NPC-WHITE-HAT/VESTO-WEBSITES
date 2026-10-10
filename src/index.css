@@ -17,6 +17,18 @@
 }
 
 @layer components {
+  .home-banner-viewport {
+    height: clamp(12rem, 56vw, 19rem);
+  }
+
+  @media (min-width: 640px) {
+    .home-banner-viewport {
+      height: clamp(18rem, 38vw, 42rem);
+    }
+  }
+}
+
+@layer components {
   .container-vesto {
     @apply mx-auto w-full max-w-8xl px-5 sm:px-8 lg:px-12;
   }

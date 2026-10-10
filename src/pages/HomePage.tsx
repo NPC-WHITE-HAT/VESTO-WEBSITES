@@ -139,22 +139,26 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
       {banners.length > 0 ? (
         <section
           aria-label="VESTO promotions"
-          className="relative w-full overflow-hidden"
+          className="home-banner-viewport relative w-full overflow-hidden"
           onMouseEnter={() => setBannerHovered(true)}
           onMouseLeave={() => setBannerHovered(false)}
         >
           <div
-            className={`flex aspect-[4/3] w-full sm:aspect-[16/9] lg:aspect-[2.8/1] ${
+            className={`flex h-full ${
               reducedMotion ? '' : 'transition-transform duration-700 ease-in-out'
             }`}
-            style={{ transform: `translateX(-${currentBanner * 100}%)` }}
+            style={{
+              width: `${banners.length * 100}%`,
+              transform: `translateX(-${(currentBanner * 100) / banners.length}%)`,
+            }}
           >
             {banners.map((banner, index) => (
               <img
                 key={banner.id}
                 src={banner.image}
                 alt={`VESTO promotional banner ${index + 1}`}
-                className="h-full w-full shrink-0 object-cover"
+                className="h-full object-cover object-center"
+                style={{ flex: `0 0 ${100 / banners.length}%` }}
                 fetchPriority={index === 0 ? 'high' : 'auto'}
               />
             ))}
