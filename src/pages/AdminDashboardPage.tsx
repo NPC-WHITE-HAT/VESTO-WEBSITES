@@ -596,7 +596,7 @@ export function AdminDashboardPage() {
   }
 
   return (
-    <div className="pt-16 md:pt-20">
+    <div className="min-w-0 pt-16 md:pt-20">
       <section className="container-vesto py-8 md:py-12">
 
         {/* HEADER */}
@@ -610,7 +610,7 @@ export function AdminDashboardPage() {
             </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
 
             <button
               onClick={() => {
@@ -645,11 +645,12 @@ export function AdminDashboardPage() {
 
         {/* TABS */}
 
-        <div className="mt-8 flex border-b border-ink-200">
+        <div className="mt-8 min-w-0 overflow-x-auto border-b border-ink-200">
+          <div className="flex w-max min-w-full">
 
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-5 py-3 text-[11px] font-semibold uppercase tracking-widest ${
+            className={`shrink-0 px-4 py-3 text-[11px] font-semibold uppercase tracking-widest sm:px-5 ${
               activeTab === 'orders'
                 ? 'border-b-2 border-ink-900 text-ink-900'
                 : 'text-ink-500'
@@ -660,7 +661,7 @@ export function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-5 py-3 text-[11px] font-semibold uppercase tracking-widest ${
+            className={`shrink-0 px-4 py-3 text-[11px] font-semibold uppercase tracking-widest sm:px-5 ${
               activeTab === 'products'
                 ? 'border-b-2 border-ink-900 text-ink-900'
                 : 'text-ink-500'
@@ -671,7 +672,7 @@ export function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('banners')}
-            className={`px-5 py-3 text-[11px] font-semibold uppercase tracking-widest ${
+            className={`shrink-0 whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-widest sm:px-5 ${
               activeTab === 'banners'
                 ? 'border-b-2 border-ink-900 text-ink-900'
                 : 'text-ink-500'
@@ -680,6 +681,7 @@ export function AdminDashboardPage() {
             Homepage Banners
           </button>
 
+          </div>
         </div>
 
         {/* ======================================================
@@ -690,7 +692,7 @@ export function AdminDashboardPage() {
           <>
             {/* DESKTOP */}
 
-            <div className="mt-8 hidden overflow-x-auto md:block">
+            <div className="mt-8 hidden min-w-0 overflow-x-auto lg:block">
 
               {loading ? (
                 <div className="flex justify-center py-20">
@@ -701,7 +703,7 @@ export function AdminDashboardPage() {
                   No orders yet.
                 </p>
               ) : (
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full min-w-[1100px] border-collapse text-sm">
 
                   <thead>
                     <tr className="border-b border-ink-200 text-left text-[11px] font-semibold uppercase tracking-widest text-ink-500">
@@ -831,7 +833,7 @@ export function AdminDashboardPage() {
 
             {/* MOBILE */}
 
-            <div className="mt-8 space-y-4 md:hidden">
+            <div className="mt-8 space-y-4 lg:hidden">
 
               {loading ? (
                 <div className="flex justify-center py-20">
@@ -845,7 +847,7 @@ export function AdminDashboardPage() {
                 orders.map((o) => (
                   <div
                     key={o.id}
-                    className="border border-ink-200 p-4"
+                    className="min-w-0 border border-ink-200 p-4"
                   >
                     <div className="flex items-center justify-between">
 
@@ -867,7 +869,7 @@ export function AdminDashboardPage() {
 
                     <div className="mt-2 space-y-1 text-sm text-ink-700">
 
-                      <p>
+                      <p className="break-words">
                         {o.customer_name} · {o.phone}
                       </p>
 
@@ -875,7 +877,7 @@ export function AdminDashboardPage() {
                         {formatPrice(Number(o.total_amount))}
                       </p>
 
-                      <p className="text-xs text-ink-500">
+                      <p className="break-all text-xs text-ink-500">
                         UPI Ref: {o.payment_reference}
                       </p>
 
@@ -903,7 +905,7 @@ export function AdminDashboardPage() {
                       <div className="mt-2 space-y-1 border-t border-ink-100 pt-2 text-xs text-ink-600">
 
                         {o.items.map((it, idx) => (
-                          <p key={idx}>
+                          <p key={idx} className="break-words">
                             {it.name} — {it.size},{' '}
                             {it.color} ×{it.quantity} ={' '}
                             {formatPrice(
@@ -969,7 +971,7 @@ export function AdminDashboardPage() {
         {activeTab === 'products' && (
           <div className="mt-8">
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
               <div>
                 <p className="section-eyebrow">
@@ -983,7 +985,7 @@ export function AdminDashboardPage() {
 
               <button
                 onClick={openAddProduct}
-                className="btn-primary"
+                className="btn-primary w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4" />
                 Add Product
@@ -1004,9 +1006,9 @@ export function AdminDashboardPage() {
                 </p>
               </div>
             ) : (
-              <div className="mt-6 overflow-x-auto">
+              <div className="mt-6 hidden min-w-0 overflow-x-auto lg:block">
 
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full min-w-[760px] border-collapse text-sm">
 
                   <thead>
                     <tr className="border-b border-ink-200 text-left text-[11px] font-semibold uppercase tracking-widest text-ink-500">
@@ -1135,6 +1137,64 @@ export function AdminDashboardPage() {
 
                 </table>
 
+              </div>
+            )}
+
+            {!productsLoading && products.length > 0 && (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:hidden">
+                {products.map((product) => (
+                  <article
+                    key={product.id}
+                    className="flex min-w-0 gap-3 border border-ink-200 p-3 sm:p-4"
+                  >
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-24 w-20 shrink-0 object-cover sm:h-28 sm:w-24"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <p className="break-words font-medium text-ink-900">
+                        {product.name}
+                      </p>
+                      <p className="mt-1 break-words text-xs text-ink-500">
+                        {product.category}
+                      </p>
+                      <p className="mt-1 font-semibold text-ink-900">
+                        {formatPrice(Number(product.price))}
+                      </p>
+                      <p
+                        className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${
+                          product.is_new ? 'text-green-700' : 'text-ink-400'
+                        }`}
+                      >
+                        {product.is_new ? 'New arrival' : 'Regular'}
+                      </p>
+                      <div className="mt-auto flex flex-wrap gap-2 pt-3">
+                        <button
+                          type="button"
+                          onClick={() => openEditProduct(product)}
+                          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 border border-ink-200 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider hover:border-ink-900"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteProduct(product)}
+                          disabled={actionLoading === `delete-${product.id}`}
+                          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 border border-red-200 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-red-700 hover:border-red-700 disabled:opacity-40"
+                        >
+                          {actionLoading === `delete-${product.id}` ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
 
@@ -1398,9 +1458,9 @@ function ProductModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] overflow-y-auto bg-ink-950/40 p-4">
+    <div className="fixed inset-0 z-[70] overflow-y-auto overscroll-contain bg-ink-950/40 p-2 sm:p-4">
 
-      <div className="mx-auto my-8 w-full max-w-2xl bg-white p-6">
+      <div className="mx-auto my-2 max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto bg-white p-4 sm:my-8 sm:max-h-[calc(100dvh-4rem)] sm:p-6">
 
         <div className="flex items-center justify-between">
 
@@ -1427,7 +1487,7 @@ function ProductModal({
 
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2">
 
           {/* PRODUCT NAME */}
 
@@ -1624,7 +1684,7 @@ function ProductModal({
           {/* COLORS */}
 
           <div className="md:col-span-2">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
                 Colors
               </label>
@@ -1647,7 +1707,7 @@ function ProductModal({
               {form.colors.map((color, index) => (
                 <div
                   key={index}
-                  className="grid items-center gap-3 border border-ink-200 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+                  className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border border-ink-200 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
                 >
                   <span
                     aria-label={`${color.name || 'Color'} swatch preview`}
@@ -1679,7 +1739,7 @@ function ProductModal({
                       className="input-vesto mt-1.5"
                     />
                   </label>
-                  <div className="flex items-center gap-2">
+                  <div className="col-span-2 flex flex-wrap items-end gap-2 sm:col-span-1">
                     <label className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">
                       Pick color
                       <input
@@ -1851,9 +1911,9 @@ function UpiConfigModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-ink-950/40 p-4">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto overscroll-contain bg-ink-950/40 p-2 sm:items-center sm:p-4">
 
-      <div className="w-full max-w-md bg-white p-6">
+      <div className="my-2 max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto bg-white p-4 sm:my-0 sm:max-h-[calc(100dvh-2rem)] sm:p-6">
 
         <div className="flex items-center justify-between">
 
