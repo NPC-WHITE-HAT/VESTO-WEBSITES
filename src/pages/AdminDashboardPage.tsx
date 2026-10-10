@@ -464,6 +464,7 @@ export function AdminDashboardPage() {
       setProducts((prev) =>
         prev.filter((p) => p.id !== product.id),
       );
+      await fetchProducts();
     }
 
     setActionLoading(null);

@@ -8,11 +8,10 @@ export async function getProducts(): Promise<Product[]> {
     .order('id', { ascending: false });
 
   if (error) {
-    console.error('Error loading products:', error);
-    return [];
+    throw error;
   }
 
-  return (data || []).map((product) => ({
+  return (data ?? []).map((product) => ({
     id: product.id,
     name: product.name,
     price: product.price,

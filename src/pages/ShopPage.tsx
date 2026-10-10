@@ -17,18 +17,33 @@ export function ShopPage({
   const [filter, setFilter] = useState(initialFilter);
   const [query, setQuery] = useState(initialQuery);
 
-    const [products, setProducts] = useState<Product[]>([]);
-const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [productsError, setProductsError] = useState('');
 
-useEffect(() => {
-  async function loadProducts() {
-    const data = await getProducts();
-    setProducts(data);
-    setLoading(false);
-  }
+  useEffect(() => {
+    let cancelled = false;
 
-  loadProducts();
-}, []);   
+    async function loadProducts() {
+      try {
+        const data = await getProducts();
+        if (!cancelled) setProducts(data);
+      } catch (error) {
+        console.error('Failed to load shop products:', error);
+        if (!cancelled) {
+          setProducts([]);
+          setProductsError('Products could not be loaded. Please try again later.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadProducts();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const filtered = useMemo(() => {
     let list = products;
     if (filter === 'new') list = list.filter((p) => p.isNew);
@@ -102,7 +117,15 @@ useEffect(() => {
         </p>
 
         {/* Grid */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <p className="py-20 text-center text-sm text-ink-500">
+            Loading products...
+          </p>
+        ) : productsError ? (
+          <p className="py-20 text-center text-sm text-ink-500">
+            {productsError}
+          </p>
+        ) : filtered.length === 0 ? (
           <div className="py-20 text-center">
             <p className="text-sm text-ink-500">
               No products match your search.
@@ -119,23 +142,13 @@ useEffect(() => {
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 md:grid-cols-3 lg:grid-cols-4">
-            {loading ? (
-    <p className="col-span-full py-12 text-center">
-      Loading products...
-    </p>
-  ) : filtered.length === 0 ? (
-    <p className="col-span-full py-12 text-center">
-      No products found.
-    </p>
-  ) : (
-    filtered.map((p) => (
-      <ProductCard
-        key={p.id}
-        product={p}
-        onQuickView={onQuickView}
-      />
-    ))
-  )}
+            {filtered.map((p) => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                onQuickView={onQuickView}
+              />
+            ))}
           </div>
         )}
       </section>

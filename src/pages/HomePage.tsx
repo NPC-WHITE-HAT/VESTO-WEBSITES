@@ -12,7 +12,6 @@ import { Accordion, type AccordionLink } from '@/components/Accordion';
 import { ProductCard } from '@/components/ProductCard';
 import type { Offer, Product } from '@/types';
 import {
-  newArrivals as existingNewArrivals,
   STORE_ADDRESS,
   GOOGLE_MAPS_URL,
   INSTAGRAM_URL,
@@ -69,19 +68,34 @@ const INFORMATION_ITEMS: AccordionLink[] = [
 export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productsError, setProductsError] = useState('');
   const [banners, setBanners] = useState<Offer[]>([]);
   const [currentBanner, setCurrentBanner] = useState(0);
   const [bannerHovered, setBannerHovered] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadProducts() {
-      const data = await getProducts();
-      setProducts(data);
-      setLoading(false);
+      try {
+        const data = await getProducts();
+        if (!cancelled) setProducts(data);
+      } catch (error) {
+        console.error('Failed to load homepage products:', error);
+        if (!cancelled) {
+          setProducts([]);
+          setProductsError('Products could not be loaded. Please try again later.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     loadProducts();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -127,13 +141,7 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
   )}`;
 
   const featured = products.slice(0, 6);
-  const newArrivals = [
-    ...products.filter((product) => product.isNew),
-    ...existingNewArrivals.filter(
-      (product) =>
-        product.isNew && !products.some((loadedProduct) => loadedProduct.id === product.id),
-    ),
-  ];
+  const newArrivals = products.filter((product) => product.isNew);
   return (
     <div>
       {banners.length > 0 ? (
@@ -273,15 +281,29 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
             </Link>
           </div>
           <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 md:grid-cols-3 lg:grid-cols-3">
-            {featured.map((p, i) => (
-              <div
-                key={p.id}
-                className="animate-fade-up"
-                style={{ animationDelay: `${i * 0.06}s` }}
-              >
-                <ProductCard product={p} onQuickView={onQuickView} showAddButton />
-              </div>
-            ))}
+            {loading ? (
+              <p className="col-span-full py-12 text-center text-sm text-ink-500">
+                Loading products...
+              </p>
+            ) : productsError ? (
+              <p className="col-span-full py-12 text-center text-sm text-ink-500">
+                {productsError}
+              </p>
+            ) : featured.length === 0 ? (
+              <p className="col-span-full py-12 text-center text-sm text-ink-500">
+                No products available yet.
+              </p>
+            ) : (
+              featured.map((p, i) => (
+                <div
+                  key={p.id}
+                  className="animate-fade-up"
+                  style={{ animationDelay: `${i * 0.06}s` }}
+                >
+                  <ProductCard product={p} onQuickView={onQuickView} showAddButton />
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -298,15 +320,29 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
           </Link>
         </div>
         <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 md:grid-cols-4">
-          {newArrivals.map((p, i) => (
-            <div
-              key={p.id}
-              className="animate-fade-up"
-              style={{ animationDelay: `${i * 0.06}s` }}
-            >
-              <ProductCard product={p} onQuickView={onQuickView} />
-            </div>
-          ))}
+          {loading ? (
+            <p className="col-span-full py-12 text-center text-sm text-ink-500">
+              Loading products...
+            </p>
+          ) : productsError ? (
+            <p className="col-span-full py-12 text-center text-sm text-ink-500">
+              {productsError}
+            </p>
+          ) : newArrivals.length === 0 ? (
+            <p className="col-span-full py-12 text-center text-sm text-ink-500">
+              No new arrivals available.
+            </p>
+          ) : (
+            newArrivals.map((p, i) => (
+              <div
+                key={p.id}
+                className="animate-fade-up"
+                style={{ animationDelay: `${i * 0.06}s` }}
+              >
+                <ProductCard product={p} onQuickView={onQuickView} />
+              </div>
+            ))
+          )}
         </div>
       </section>
 
