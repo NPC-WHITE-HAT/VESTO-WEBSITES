@@ -28,7 +28,7 @@ import {
   getOffers,
   updateOffer,
 } from '@/lib/offers';
-import type { Offer } from '@/types';
+import type { Offer, ProductColor } from '@/types';
 
 interface OrderRow {
   id: string;
@@ -79,7 +79,7 @@ interface ProductForm {
   is_new: boolean;
   image: string;
   description: string;
-  colors: string;
+  colors: ProductColor[];
   sizes: string;
   fabric: string;
 }
@@ -93,6 +93,14 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800',
 };
 
+function colorPickerValue(hex: string): string {
+  if (/^#[\da-f]{6}$/i.test(hex)) return hex;
+  const shortHex = hex.match(/^#([\da-f])([\da-f])([\da-f])$/i);
+  return shortHex
+    ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`
+    : '#000000';
+}
+
 const EMPTY_PRODUCT: ProductForm = {
   id: '',
   name: '',
@@ -101,7 +109,7 @@ const EMPTY_PRODUCT: ProductForm = {
   is_new: true,
   image: '',
   description: '',
-  colors: '[{"name":"Black","hex":"#1a1916"}]',
+  colors: [{ name: 'Black', hex: '#1a1916' }],
   sizes: 'S, M, L, XL, XXL',
   fabric: '',
 };
@@ -325,7 +333,7 @@ export function AdminDashboardPage() {
       is_new: product.is_new,
       image: product.image,
       description: product.description,
-      colors: JSON.stringify(product.colors),
+      colors: product.colors ?? [],
       sizes: product.sizes.join(', '),
       fabric: product.fabric,
     });
@@ -350,16 +358,25 @@ export function AdminDashboardPage() {
       return;
     }
 
-    let colors;
-
-    try {
-      colors = JSON.parse(productForm.colors);
-    } catch {
-      alert(
-        'Colors must be valid JSON. Example: [{"name":"Black","hex":"#1a1916"}]',
-      );
+    if (productForm.colors.length === 0) {
+      alert('Please add at least one product color.');
       return;
     }
+
+    const invalidColor = productForm.colors.find(
+      (color) =>
+        !color.name.trim() || !/^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(color.hex),
+    );
+
+    if (invalidColor) {
+      alert('Each color needs a name and a valid hex value (for example #1a1916).');
+      return;
+    }
+
+    const colors = productForm.colors.map(({ name, hex }) => ({
+      name: name.trim(),
+      hex,
+    }));
 
     const sizes = productForm.sizes
       .split(',')
@@ -1607,28 +1624,124 @@ function ProductModal({
           {/* COLORS */}
 
           <div className="md:col-span-2">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+                Colors
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    colors: [...currentForm.colors, { name: '', hex: '#000000' }],
+                  }))
+                }
+                className="inline-flex items-center gap-1 border border-ink-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Color
+              </button>
+            </div>
 
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
-              Colors (JSON)
-            </label>
-
-            <textarea
-              value={form.colors}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  colors: e.target.value,
-                })
-              }
-              rows={3}
-              placeholder='[{"name":"Black","hex":"#1a1916"}]'
-              className="input-vesto mt-1.5 font-mono text-xs"
-            />
-
-            <p className="mt-1 text-[10px] text-ink-400">
-  Example: {'[{"name":"Black","hex":"#1a1916"}]'}
-</p>
-
+            <div className="mt-3 space-y-3">
+              {form.colors.map((color, index) => (
+                <div
+                  key={index}
+                  className="grid items-center gap-3 border border-ink-200 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+                >
+                  <span
+                    aria-label={`${color.name || 'Color'} swatch preview`}
+                    className="h-10 w-10 border border-ink-200"
+                    style={{
+                      backgroundColor: /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(
+                        color.hex,
+                      )
+                        ? colorPickerValue(color.hex)
+                        : 'transparent',
+                    }}
+                  />
+                  <label className="min-w-0 text-[10px] font-semibold uppercase tracking-widest text-ink-500">
+                    Color name
+                    <input
+                      type="text"
+                      value={color.name}
+                      onChange={(event) =>
+                        setForm((currentForm) => ({
+                          ...currentForm,
+                          colors: currentForm.colors.map((currentColor, i) =>
+                            i === index
+                              ? { ...currentColor, name: event.target.value }
+                              : currentColor,
+                          ),
+                        }))
+                      }
+                      placeholder="e.g. Black"
+                      className="input-vesto mt-1.5"
+                    />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">
+                      Pick color
+                      <input
+                        type="color"
+                        value={colorPickerValue(color.hex)}
+                        onChange={(event) =>
+                          setForm((currentForm) => ({
+                            ...currentForm,
+                            colors: currentForm.colors.map((currentColor, i) =>
+                              i === index
+                                ? { ...currentColor, hex: event.target.value }
+                                : currentColor,
+                            ),
+                          }))
+                        }
+                        aria-label={`Pick ${color.name || 'color'} swatch`}
+                        className="mt-1 block h-10 w-12 cursor-pointer border border-ink-200 bg-white p-1"
+                      />
+                    </label>
+                    <label className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">
+                      Hex
+                      <input
+                        type="text"
+                        value={color.hex}
+                        onChange={(event) =>
+                          setForm((currentForm) => ({
+                            ...currentForm,
+                            colors: currentForm.colors.map((currentColor, i) =>
+                              i === index
+                                ? { ...currentColor, hex: event.target.value }
+                                : currentColor,
+                            ),
+                          }))
+                        }
+                        aria-label={`Hex value for ${color.name || `color ${index + 1}`}`}
+                        placeholder="#1a1916"
+                        className="input-vesto mt-1 w-28 px-2 font-mono text-xs"
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((currentForm) => ({
+                        ...currentForm,
+                        colors: currentForm.colors.filter((_, i) => i !== index),
+                      }))
+                    }
+                    aria-label={`Remove ${color.name || `color ${index + 1}`}`}
+                    className="inline-flex h-10 items-center justify-center border border-red-200 px-3 text-[10px] font-semibold uppercase tracking-wider text-red-700 transition-colors hover:border-red-700"
+                  >
+                    <Trash2 className="h-4 w-4 sm:hidden" />
+                    <span className="hidden sm:inline">Remove</span>
+                  </button>
+                </div>
+              ))}
+              {form.colors.length === 0 && (
+                <p className="border border-dashed border-ink-200 py-6 text-center text-sm text-ink-500">
+                  No colors added yet. Add at least one color to continue.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* NEW PRODUCT */}
