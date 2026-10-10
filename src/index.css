@@ -18,12 +18,12 @@
 
 @layer components {
   .home-banner-viewport {
-    height: clamp(12rem, 56vw, 19rem);
+    height: clamp(220px, 62vw, 260px);
   }
 
   @media (min-width: 640px) {
     .home-banner-viewport {
-      height: clamp(18rem, 38vw, 42rem);
+      height: clamp(380px, 38vw, 550px);
     }
   }
 }

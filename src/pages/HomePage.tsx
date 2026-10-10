@@ -148,8 +148,8 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
               reducedMotion ? '' : 'transition-transform duration-700 ease-in-out'
             }`}
             style={{
-              width: `${banners.length * 100}%`,
-              transform: `translateX(-${(currentBanner * 100) / banners.length}%)`,
+              width: '100%',
+              transform: `translateX(-${currentBanner * 100}%)`,
             }}
           >
             {banners.map((banner, index) => (
@@ -157,8 +157,8 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
                 key={banner.id}
                 src={banner.image}
                 alt={`VESTO promotional banner ${index + 1}`}
-                className="h-full object-cover object-center"
-                style={{ flex: `0 0 ${100 / banners.length}%` }}
+                className="h-full w-full min-w-0 object-cover object-center"
+                style={{ flex: '0 0 100%' }}
                 fetchPriority={index === 0 ? 'high' : 'auto'}
               />
             ))}
