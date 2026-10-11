@@ -25,8 +25,8 @@ export function CartPage() {
     <div className="pt-16 md:pt-20">
       <section className="container-vesto py-10 md:py-14">
         <p className="section-eyebrow">Shopping Bag</p>
-        <h1 className="display-heading mt-2 text-4xl md:text-5xl">YOUR CART</h1>
-        <p className="mt-2 text-xs uppercase tracking-widest text-ink-500">
+        <h1 className="display-heading mt-2 text-5xl md:text-7xl">Your selection</h1>
+        <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-ink-500">
           {count} {count === 1 ? 'item' : 'items'}
         </p>
 
@@ -51,12 +51,12 @@ export function CartPage() {
                   <div className="flex flex-1 flex-col">
                     <div className="flex justify-between gap-3">
                       <div>
-                        <p className="text-[11px] uppercase tracking-widest text-ink-400">
+                        <p className="text-[9px] uppercase tracking-[0.2em] text-ink-500">
                           {item.product.category}
                         </p>
                         <Link
                           to={`/product?id=${item.product.id}`}
-                          className="mt-0.5 block text-sm font-medium text-ink-900 hover:text-ink-600"
+                          className="mt-1 block font-display text-xl font-medium leading-tight text-ink-900 hover:text-accent-dark"
                         >
                           {item.product.name}
                         </Link>
@@ -104,7 +104,7 @@ export function CartPage() {
           {/* Summary */}
           <div className="lg:col-span-1">
             <div className="bg-ink-100 p-6 md:p-8">
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-900">
+              <h2 className="font-display text-2xl font-medium text-ink-900">
                 Order Summary
               </h2>
               <div className="mt-5 space-y-3 text-sm">

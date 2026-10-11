@@ -106,8 +106,8 @@ export function ProductPage({
 
       <div className="container-vesto grid gap-10 pb-16 md:grid-cols-2 md:gap-14 lg:gap-20">
         {/* Image */}
-        <div className="overflow-hidden bg-ink-100">
-          <div className="aspect-[3/4]">
+        <div className="overflow-hidden bg-white">
+          <div className="aspect-[4/5]">
             <img
               src={product.image}
               alt={product.name}
@@ -118,19 +118,19 @@ export function ProductPage({
 
         {/* Details */}
         <div className="flex flex-col">
-          <p className="text-[11px] uppercase tracking-widest text-ink-400">
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent-dark">
             {product.category}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold text-ink-900 md:text-3xl">
+          <h1 className="mt-2 font-display text-4xl font-medium leading-none text-ink-900 md:text-5xl">
             {product.name}
           </h1>
-          <p className="mt-2 text-xl font-semibold text-ink-800">
+          <p className="mt-4 text-base font-medium tracking-wide text-ink-800">
             {formatPrice(product.price)}
           </p>
-          <p className="mt-5 text-sm leading-relaxed text-ink-600">
+          <p className="mt-6 max-w-lg text-sm leading-7 text-ink-600">
             {product.description}
           </p>
-          <p className="mt-4 text-xs uppercase tracking-widest text-ink-500">
+          <p className="mt-4 text-[10px] uppercase tracking-[0.18em] text-ink-500">
             {product.fabric}
           </p>
 
@@ -147,8 +147,8 @@ export function ProductPage({
                   aria-label={c.name}
                   className={`flex h-9 w-9 items-center justify-center border transition-colors ${
                     color === c.name
-                      ? 'border-ink-900 ring-1 ring-ink-900 ring-offset-2 ring-offset-ink-50'
-                      : 'border-ink-200 hover:border-ink-400'
+                      ? 'border-accent ring-1 ring-accent ring-offset-2 ring-offset-ink-50'
+                      : 'border-ink-200 hover:border-accent'
                   }`}
                 >
                   <span
@@ -242,7 +242,7 @@ export function ProductPage({
       {related.length > 0 && (
         <section className="bg-ink-100 py-16 md:py-20">
           <div className="container-vesto">
-            <h2 className="display-heading text-3xl md:text-4xl">YOU MAY ALSO LIKE</h2>
+            <h2 className="display-heading text-4xl md:text-6xl">You may also like</h2>
             <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 md:grid-cols-4">
               {related.map((p) => (
                 <ProductCard key={p.id} product={p} onQuickView={onQuickView} />

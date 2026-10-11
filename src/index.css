@@ -3,27 +3,58 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-ivory: #F7F5F0;
+    --color-ink: #191919;
+    --color-muted: #77736D;
+    --color-champagne: #B79A66;
+    --color-border: #E8E3DA;
+    --color-card: #FFFFFF;
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
   }
+
   body {
     @apply bg-ink-50 text-ink-900 font-sans antialiased;
   }
+
   ::selection {
-    @apply bg-ink-900 text-ink-50;
+    @apply bg-accent text-ink-900;
+  }
+
+  button,
+  a,
+  input,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-champagne);
+    outline-offset: 3px;
   }
 }
 
 @layer components {
   .home-banner-viewport {
-    height: clamp(400px, 125vw, 520px);
+    height: min(76vh, 720px);
+    min-height: 560px;
   }
 
   @media (min-width: 768px) {
     .home-banner-viewport {
-      height: clamp(380px, 36vw, 550px);
+      height: min(82vh, 780px);
+      min-height: 620px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .home-banner-viewport {
+      min-height: 580px;
     }
   }
 }
@@ -33,25 +64,25 @@
     @apply mx-auto w-full max-w-8xl px-5 sm:px-8 lg:px-12;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 bg-ink-900 px-7 py-3.5 text-xs font-semibold uppercase tracking-widest text-ink-50 transition-all duration-300 hover:bg-ink-700 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 bg-ink-900 px-7 py-3.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white transition-all duration-300 hover:bg-ink-700 active:scale-[0.98];
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 border border-ink-300 px-7 py-3.5 text-xs font-semibold uppercase tracking-widest text-ink-900 transition-all duration-300 hover:border-ink-900 hover:bg-ink-900 hover:text-ink-50 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 border border-ink-300 px-7 py-3.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-900 transition-all duration-300 hover:border-accent hover:text-accent-dark active:scale-[0.98];
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-ink-700 transition-colors duration-300 hover:text-ink-900;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700 transition-colors duration-300 hover:text-accent-dark;
   }
   .section-eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-widest text-ink-500;
+    @apply text-[10px] font-semibold uppercase tracking-[0.24em] text-accent-dark;
   }
   .display-heading {
-    @apply font-display leading-[0.95] tracking-tight text-ink-900;
+    @apply font-display font-medium leading-[0.94] tracking-[-0.025em] text-ink-900;
   }
   .input-vesto {
-    @apply w-full border border-ink-200 bg-white px-4 py-3 text-sm text-ink-900 placeholder-ink-400 transition-colors focus:border-ink-900 focus:outline-none;
+    @apply w-full border border-ink-200 bg-white px-4 py-3 text-sm text-ink-900 placeholder-ink-400 transition-colors focus:border-accent focus:outline-none;
   }
   .link-underline {
-    @apply relative inline-block after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full;
+    @apply relative inline-block after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-accent after:transition-all after:duration-300 hover:after:w-full;
   }
 }
 
@@ -62,4 +93,15 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

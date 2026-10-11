@@ -64,8 +64,8 @@ export function ShopPage({
       <section className="border-b border-ink-200 bg-ink-50">
         <div className="container-vesto py-10 md:py-14">
           <p className="section-eyebrow">Collection</p>
-          <h1 className="display-heading mt-2 text-4xl md:text-6xl">
-            MEN'S COLLECTION
+          <h1 className="display-heading mt-2 text-5xl md:text-7xl">
+            The collection
           </h1>
           <p className="mt-3 max-w-md text-sm text-ink-600">
             A tight edit of tees, shirts, polos, trousers and denim — built for
@@ -102,7 +102,7 @@ export function ShopPage({
                 className={`whitespace-nowrap border px-4 py-2 text-[11px] font-semibold uppercase tracking-widest transition-colors ${
                   active
                     ? 'border-ink-900 bg-ink-900 text-ink-50'
-                    : 'border-ink-200 text-ink-700 hover:border-ink-400'
+                    : 'border-ink-200 text-ink-700 hover:border-accent hover:text-accent-dark'
                 }`}
               >
                 {c.label}
@@ -112,7 +112,7 @@ export function ShopPage({
         </div>
 
         {/* Results count */}
-        <p className="mt-6 text-xs uppercase tracking-widest text-ink-500">
+        <p className="mt-6 text-[10px] font-medium uppercase tracking-[0.2em] text-ink-500">
           {filtered.length} {filtered.length === 1 ? 'product' : 'products'}
         </p>
 

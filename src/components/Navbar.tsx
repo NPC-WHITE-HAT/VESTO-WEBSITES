@@ -35,13 +35,13 @@ export function Navbar() {
   return (
     <>
       <header
-        className={`fixed inset-x-0 top-0 z-50 bg-white text-ink-900 transition-all duration-500 ${
+        className={`fixed inset-x-0 top-0 z-50 bg-ink-50/95 text-ink-900 backdrop-blur-md transition-all duration-500 ${
           scrolled
-            ? 'backdrop-blur-md shadow-[0_1px_0_0_rgba(0,0,0,0.06)]'
-            : ''
+            ? 'shadow-[0_1px_0_0_rgba(25,25,25,0.08)]'
+            : 'border-b border-ink-200/70'
         }`}
       >
-        <nav className="container-vesto flex h-16 items-center justify-between md:h-20">
+        <nav className="container-vesto flex h-16 items-center justify-between md:h-[84px]">
           <button
             className="md:hidden"
             onClick={() => setOpen(true)}
@@ -52,7 +52,7 @@ export function Navbar() {
 
           <Link
             to="/"
-            className="flex w-[84px] shrink-0 items-center md:w-[112px]"
+            className="flex w-[82px] shrink-0 items-center md:w-[116px]"
             aria-label="VESTO home"
           >
             <img
@@ -67,7 +67,7 @@ export function Navbar() {
               <Link
                 key={l.to}
                 to={l.to}
-                className="text-[11px] font-semibold uppercase tracking-widest text-ink-700 transition-colors hover:text-ink-900 link-underline"
+                className="text-[10px] font-medium uppercase tracking-[0.18em] text-ink-700 transition-colors hover:text-accent-dark link-underline"
               >
                 {l.label}
               </Link>
@@ -76,13 +76,13 @@ export function Navbar() {
 
           <div className="flex items-center gap-3 sm:gap-4 md:gap-5">
             <form onSubmit={submitSearch} className="hidden sm:block">
-              <div className="flex items-center gap-2 border-b border-transparent transition-colors focus-within:border-ink-400">
-                <Search className="h-4 w-4 text-ink-500" />
+              <div className="flex items-center gap-2 border-b border-ink-200 transition-colors focus-within:border-accent">
+                <Search className="h-3.5 w-3.5 text-ink-500" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search"
-                  className="w-24 bg-transparent py-1 text-sm placeholder-ink-400 focus:outline-none md:w-32"
+                  className="w-20 bg-transparent py-1 text-xs placeholder-ink-400 focus:outline-none md:w-24"
                 />
               </div>
             </form>
@@ -94,9 +94,9 @@ export function Navbar() {
               <Search className="h-5 w-5" />
             </button>
             <Link to="/cart" className="relative" aria-label="Cart">
-              <ShoppingBag className="h-5 w-5" />
+              <ShoppingBag className="h-[18px] w-[18px]" />
               {count > 0 && (
-                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center bg-ink-900 px-1 text-[10px] font-bold text-ink-50">
+                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center bg-accent px-1 text-[9px] font-semibold text-ink-900">
                   {count}
                 </span>
               )}
@@ -118,7 +118,7 @@ export function Navbar() {
           onClick={() => setOpen(false)}
         />
         <aside
-          className={`absolute left-0 top-0 h-full w-[82%] max-w-sm bg-ink-50 px-6 py-6 transition-transform duration-400 ease-out ${
+          className={`absolute left-0 top-0 h-full w-[86%] max-w-sm bg-ink-50 px-6 py-6 transition-transform duration-400 ease-out ${
             open ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -144,7 +144,7 @@ export function Navbar() {
               submitSearch(e);
               setOpen(false);
             }}
-            className="mt-8 flex items-center gap-2 border-b border-ink-200 pb-2"
+            className="mt-8 flex items-center gap-2 border-b border-ink-200 pb-2 focus-within:border-accent"
           >
             <Search className="h-4 w-4 text-ink-500" />
             <input
@@ -160,7 +160,7 @@ export function Navbar() {
                 key={l.to}
                 to={l.to}
                 onClick={() => setOpen(false)}
-                className="py-3 text-sm font-semibold uppercase tracking-widest text-ink-800 transition-colors hover:text-ink-900"
+                className="border-b border-ink-200/70 py-4 text-[11px] font-medium uppercase tracking-[0.2em] text-ink-800 transition-colors hover:text-accent-dark"
               >
                 {l.label}
               </Link>

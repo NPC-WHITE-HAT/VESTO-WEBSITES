@@ -66,11 +66,11 @@ export function QuickView({
             />
           </div>
 
-          <div className="flex flex-col p-6 sm:p-8">
-            <p className="text-[11px] uppercase tracking-widest text-ink-400">
+          <div className="flex flex-col p-6 sm:p-9">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent-dark">
               {product.category}
             </p>
-            <h2 className="mt-1 text-xl font-semibold text-ink-900">
+            <h2 className="mt-2 font-display text-3xl font-medium leading-tight text-ink-900">
               {product.name}
             </h2>
             <p className="mt-2 text-lg font-semibold text-ink-800">

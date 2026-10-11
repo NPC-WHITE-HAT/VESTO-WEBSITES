@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 430" role="img" aria-labelledby="title desc">
   <title id="title">VESTO Addiction Groups</title>
   <desc id="desc">VESTO Addiction Groups logo</desc>
-  <rect width="1400" height="430" fill="#ffffff"/>
+  <rect width="1400" height="430" fill="#F7F5F0"/>
   <g fill="#211f20">
     <path d="M0 16h82l92 195L266 16h82L174 365z"/>
     <path d="M365 16h247l-30 63H445v70h153v62H445v87h167l-31 67H365z"/>

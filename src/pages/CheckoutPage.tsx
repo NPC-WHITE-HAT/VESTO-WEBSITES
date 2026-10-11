@@ -214,7 +214,7 @@ export function CheckoutPage() {
 
       <section className="container-vesto pb-16">
         <p className="section-eyebrow">Checkout</p>
-        <h1 className="display-heading mt-2 text-4xl md:text-5xl">CHECKOUT</h1>
+        <h1 className="display-heading mt-2 text-5xl md:text-7xl">Checkout</h1>
 
         {/* Step indicator */}
         <div className="mt-6 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest">
@@ -240,7 +240,7 @@ export function CheckoutPage() {
             {/* STEP 1: Customer Details */}
             {step === 'details' && (
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-900">
+                <h2 className="font-display text-2xl font-medium text-ink-900">
                   Delivery Details
                 </h2>
                 <div className="mt-5 space-y-4">
@@ -343,7 +343,7 @@ export function CheckoutPage() {
             {/* STEP 2: UPI Payment */}
             {step === 'payment' && upiConfig && (
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-900">
+                <h2 className="font-display text-2xl font-medium text-ink-900">
                   Pay With UPI
                 </h2>
 
@@ -434,7 +434,7 @@ export function CheckoutPage() {
             {/* STEP 3: Payment Reference */}
             {step === 'reference' && (
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-900">
+                <h2 className="font-display text-2xl font-medium text-ink-900">
                   Enter UPI Transaction / UTR Number
                 </h2>
                 <input

@@ -147,7 +147,7 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
       {banners.length > 0 ? (
         <section
           aria-label="VESTO promotions"
-          className="home-banner-viewport relative w-full overflow-hidden"
+          className="home-banner-viewport relative w-full overflow-hidden bg-ink-900"
           onMouseEnter={() => setBannerHovered(true)}
           onMouseLeave={() => setBannerHovered(false)}
         >
@@ -167,9 +167,31 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
                 alt={`VESTO promotional banner ${index + 1}`}
                 className="h-full w-full min-w-0 object-cover object-center"
                 style={{ flex: '0 0 100%' }}
-                fetchPriority={index === 0 ? 'high' : 'auto'}
               />
             ))}
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/75 via-ink-950/35 to-ink-950/5" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-950/35 via-transparent to-ink-950/10" />
+          <div className="container-vesto absolute inset-0 z-10 flex items-end pb-20 pt-28 md:items-center md:pb-12">
+            <div className="max-w-2xl text-white">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#D7C29B]">
+                Contemporary menswear · Perambur, Chennai
+              </p>
+              <h1 className="mt-5 font-display text-5xl font-medium leading-[0.92] tracking-[-0.03em] sm:text-6xl md:text-8xl">
+                Considered style.
+                <br />
+                Everyday ease.
+              </h1>
+              <p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 md:text-base">
+                Thoughtful fits and modern essentials, made to feel like your own.
+              </p>
+              <Link
+                to="/shop"
+                className="pointer-events-auto mt-8 inline-flex items-center gap-3 border border-[#D7C29B] bg-[#B79A66] px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-900 transition-colors hover:bg-[#D7C29B]"
+              >
+                Explore the collection <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
           {banners.length > 1 && (
             <>
@@ -181,7 +203,7 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
                     (current) => (current - 1 + banners.length) % banners.length,
                   )
                 }
-                className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 text-ink-900 transition-colors hover:bg-white md:left-8"
+                className="absolute left-4 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-white/40 bg-ink-950/20 text-white transition-colors hover:bg-ink-950/60 md:left-8"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -191,11 +213,11 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
                 onClick={() =>
                   setCurrentBanner((current) => (current + 1) % banners.length)
                 }
-                className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 text-ink-900 transition-colors hover:bg-white md:right-8"
+                className="absolute right-4 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-white/40 bg-ink-950/20 text-white transition-colors hover:bg-ink-950/60 md:right-8"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
-              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+              <div className="absolute bottom-6 right-6 z-20 flex gap-2 md:right-12">
                 {banners.map((banner, index) => (
                   <button
                     key={banner.id}
@@ -205,8 +227,8 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
                     onClick={() => setCurrentBanner(index)}
                     className={`h-2 rounded-full transition-all ${
                       index === currentBanner
-                        ? 'w-6 bg-white'
-                        : 'w-2 bg-white/60 hover:bg-white'
+                        ? 'w-6 bg-[#D7C29B]'
+                          : 'w-2 bg-white/50 hover:bg-white'
                     }`}
                   />
                 ))}
@@ -215,15 +237,33 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
           )}
         </section>
       ) : (
-        <section className="flex min-h-56 w-full items-center justify-center bg-ink-100 px-5 py-14 text-center md:min-h-72">
-          <div>
-            <p className="section-eyebrow">VESTO · Perambur, Chennai</p>
-            <h1 className="display-heading mt-3 text-3xl md:text-5xl">
-              FIND YOUR EVERYDAY STYLE.
-            </h1>
-            <Link to="/shop" className="btn-primary mt-6">
-              Shop Collection <ArrowRight className="h-4 w-4" />
-            </Link>
+        <section className="home-banner-viewport relative flex w-full items-end overflow-hidden bg-ink-900 px-5 pb-20 pt-28 md:items-center md:py-12">
+          <img
+            src={STORE_CTA_IMG}
+            alt="Contemporary menswear"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-ink-950/75 via-ink-950/35 to-ink-950/5" />
+          <div className="container-vesto relative z-10">
+            <div className="max-w-2xl text-white">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#D7C29B]">
+                Contemporary menswear · Perambur, Chennai
+              </p>
+              <h1 className="mt-5 font-display text-5xl font-medium leading-[0.92] tracking-[-0.03em] sm:text-6xl md:text-8xl">
+                Considered style.
+                <br />
+                Everyday ease.
+              </h1>
+              <p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 md:text-base">
+                Thoughtful fits and modern essentials, made to feel like your own.
+              </p>
+              <Link
+                to="/shop"
+                className="mt-8 inline-flex items-center gap-3 border border-[#D7C29B] bg-[#B79A66] px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-900 transition-colors hover:bg-[#D7C29B]"
+              >
+                Explore the collection <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         </section>
       )}
@@ -232,8 +272,8 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
       <section className="container-vesto py-16 md:py-24">
         <div className="flex items-end justify-between">
           <div>
-            <p className="section-eyebrow">Browse</p>
-            <h2 className="display-heading mt-2 text-4xl md:text-5xl">SHOP MEN'S</h2>
+            <p className="section-eyebrow">The wardrobe</p>
+            <h2 className="display-heading mt-2 text-4xl md:text-6xl">Shop by category</h2>
           </div>
           <Link to="/shop" className="btn-ghost hidden sm:inline-flex">
             View All <ArrowRight className="h-3.5 w-3.5" />
@@ -272,8 +312,8 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
           <div className="flex items-end justify-between">
             <div>
               <p className="section-eyebrow">Selected</p>
-              <h2 className="display-heading mt-2 text-4xl md:text-5xl">
-                FEATURED COLLECTION
+              <h2 className="display-heading mt-2 text-4xl md:text-6xl">
+                The considered edit
               </h2>
             </div>
             <Link to="/shop" className="btn-ghost hidden sm:inline-flex">
@@ -300,7 +340,7 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
                   className="animate-fade-up"
                   style={{ animationDelay: `${i * 0.06}s` }}
                 >
-                  <ProductCard product={p} onQuickView={onQuickView} showAddButton />
+                  <ProductCard product={p} onQuickView={onQuickView} />
                 </div>
               ))
             )}
@@ -313,7 +353,7 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
         <div className="flex items-end justify-between">
           <div>
             <p className="section-eyebrow">Just In</p>
-            <h2 className="display-heading mt-2 text-4xl md:text-5xl">NEW ARRIVALS</h2>
+            <h2 className="display-heading mt-2 text-4xl md:text-6xl">New arrivals</h2>
           </div>
           <Link to="/shop?filter=new" className="btn-ghost hidden sm:inline-flex">
             View All <ArrowRight className="h-3.5 w-3.5" />
@@ -366,8 +406,8 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
         <div className="absolute inset-0 bg-ink-950/40" />
         <div className="relative z-10 container-vesto py-20 text-center md:py-28">
           <p className="section-eyebrow text-ink-400">Visit · Order</p>
-          <h2 className="display-heading mx-auto mt-2 max-w-2xl text-4xl text-ink-50 md:text-6xl">
-            FIND YOUR STYLE AT VESTO.
+          <h2 className="display-heading mx-auto mt-2 max-w-2xl text-5xl text-ink-50 md:text-7xl">
+            Find your style at VESTO.
           </h2>
           <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-ink-300 md:text-base">
             Visit our store in Perambur or order your favourite styles directly

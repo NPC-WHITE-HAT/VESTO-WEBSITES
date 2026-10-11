@@ -27,8 +27,8 @@ export function ProductCard({
 
   return (
     <div className="group relative flex flex-col">
-      <Link to={`/product?id=${product.id}`} className="relative block overflow-hidden bg-ink-100">
-        <div className="aspect-[3/4] w-full">
+      <Link to={`/product?id=${product.id}`} className="relative block overflow-hidden bg-white">
+        <div className="aspect-[4/5] w-full">
           <img
             src={product.image}
             alt={product.name}
@@ -37,7 +37,7 @@ export function ProductCard({
           />
         </div>
         {product.isNew && (
-          <span className="absolute left-3 top-3 bg-ink-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-ink-900">
+          <span className="absolute left-3 top-3 border border-white/60 bg-ink-50/90 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-accent-dark backdrop-blur-sm">
             New
           </span>
         )}
@@ -48,7 +48,7 @@ export function ProductCard({
               e.stopPropagation();
               onQuickView(product);
             }}
-            className="absolute bottom-0 left-0 flex w-full translate-y-full items-center justify-center gap-2 bg-ink-900/95 py-3 text-[11px] font-semibold uppercase tracking-widest text-ink-50 transition-transform duration-300 group-hover:translate-y-0"
+            className="absolute bottom-0 left-0 flex w-full translate-y-full items-center justify-center gap-2 bg-ink-50/95 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-900 transition-transform duration-300 group-hover:translate-y-0"
           >
             <Eye className="h-4 w-4" /> Quick View
           </button>
@@ -56,22 +56,22 @@ export function ProductCard({
       </Link>
 
       <div className="mt-4 flex flex-col">
-        <p className="text-[11px] uppercase tracking-widest text-ink-400">
+        <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-ink-500">
           {product.category}
         </p>
         <Link
           to={`/product?id=${product.id}`}
-          className="mt-1 text-sm font-medium text-ink-900 transition-colors hover:text-ink-600"
+          className="mt-1 font-display text-xl font-medium leading-tight text-ink-900 transition-colors hover:text-accent-dark"
         >
           {product.name}
         </Link>
-        <p className="mt-1 text-sm font-semibold text-ink-800">
+        <p className="mt-1 text-xs font-medium tracking-wide text-ink-700">
           {formatPrice(product.price)}
         </p>
         {showAddButton && (
           <button
             onClick={handleAdd}
-            className="mt-3 inline-flex items-center justify-center gap-2 border border-ink-200 py-2.5 text-[11px] font-semibold uppercase tracking-widest text-ink-800 transition-all duration-300 hover:border-ink-900 hover:bg-ink-900 hover:text-ink-50"
+            className="mt-3 inline-flex items-center justify-center gap-2 border border-ink-200 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-800 transition-all duration-300 hover:border-accent hover:text-accent-dark"
           >
             {added ? (
               <>
