@@ -4,7 +4,6 @@ import { formatPrice, WHATSAPP_NUMBER } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 import { Link, navigate } from '@/router';
 import { ProductCard } from '@/components/ProductCard';
-import { products } from '@/data/products';
 import { getProducts } from '@/lib/products';
 import type { Product } from '@/types';
 
@@ -16,6 +15,7 @@ export function ProductPage({
   onQuickView: (p: Product) => void;
 }) {
   const [product, setProduct] = useState<Product | undefined>();
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
   const [size, setSize] = useState(product?.sizes[1] ?? product?.sizes[0] ?? '');
@@ -32,10 +32,16 @@ export function ProductPage({
 
       try {
         const data = await getProducts();
-        if (!cancelled) setProduct(data.find((item) => item.id === id));
+        if (!cancelled) {
+          setProducts(data);
+          setProduct(data.find((item) => item.id === id));
+        }
       } catch (error) {
         console.error('Error loading product details:', error);
-        if (!cancelled) setProduct(undefined);
+        if (!cancelled) {
+          setProducts([]);
+          setProduct(undefined);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
