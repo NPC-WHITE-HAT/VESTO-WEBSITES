@@ -26,7 +26,7 @@ const STORE_CTA_IMG =
   'https://images.pexels.com/photos/3839432/pexels-photo-3839432.jpeg?auto=compress&cs=tinysrgb&w=1600';
 
 const CATEGORY_BLOCKS: { label: string; value: string; img: string }[] = [
-  { label: 'T-Shirts', value: 'T-Shirts', img: 'https://images.pexels.com/photos/12781928/pexels-photo-12781928.jpeg?auto=compress&cs=tinysrgb&h=700&w=500' },
+  { label: 'T-Shirts', value: 'T-Shirts', img: '/images/browse-shop-tshirt.jpg' },
   { label: 'Shirts', value: 'Shirts', img: 'https://images.pexels.com/photos/7905889/pexels-photo-7905889.jpeg?auto=compress&cs=tinysrgb&h=700&w=500' },
   { label: 'Polos', value: 'Polos', img: 'https://images.pexels.com/photos/9301162/pexels-photo-9301162.jpeg?auto=compress&cs=tinysrgb&h=700&w=500' },
   { label: 'Trousers', value: 'Trousers', img: 'https://images.pexels.com/photos/9464625/pexels-photo-9464625.jpeg?auto=compress&cs=tinysrgb&h=700&w=500' },
