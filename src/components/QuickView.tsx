@@ -5,6 +5,7 @@ import { Link } from '@/router';
 import { formatPrice } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 import { navigate } from '@/router';
+import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
 
 export function QuickView({
   product,
@@ -17,12 +18,14 @@ export function QuickView({
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
   const [added, setAdded] = useState(false);
+  const [cartMessage, setCartMessage] = useState('');
 
   useEffect(() => {
     if (product) {
       setSize(product.sizes[1] ?? product.sizes[0]);
       setColor(product.colors[0]?.name ?? '');
       setAdded(false);
+      setCartMessage('');
     }
   }, [product]);
 
@@ -37,10 +40,16 @@ export function QuickView({
   if (!product) return null;
 
   const addToCart = () => {
-    addItem(product, size, color, 1);
+    if (!addItem(product, size, color, 1)) {
+      setCartMessage('This product is no longer available in the requested quantity.');
+      return;
+    }
+    setCartMessage('');
     setAdded(true);
     setTimeout(onClose, 900);
   };
+  const stockStatus = getStockStatus(product.stockQuantity);
+  const outOfStock = stockStatus === 'Out of Stock';
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center">
@@ -75,6 +84,10 @@ export function QuickView({
             </h2>
             <p className="mt-2 text-lg font-semibold text-ink-800">
               {formatPrice(product.price)}
+            </p>
+            <p className={`mt-2 text-xs font-semibold uppercase tracking-wider ${getStockStatusClasses(stockStatus)}`}>
+              {stockStatus}
+              {!outOfStock && ` · ${product.stockQuantity} available`}
             </p>
             <p className="mt-4 text-sm leading-relaxed text-ink-600">
               {product.description}
@@ -129,9 +142,12 @@ export function QuickView({
             <div className="mt-7 flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={addToCart}
-                className="btn-primary flex-1"
+                disabled={outOfStock}
+                className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {added ? (
+                {outOfStock ? (
+                  'Out of Stock'
+                ) : added ? (
                   <>
                     <Check className="h-4 w-4" /> Added
                   </>
@@ -147,6 +163,7 @@ export function QuickView({
                 Details
               </Link>
             </div>
+            {cartMessage && <p role="alert" className="mt-3 text-sm text-red-700">{cartMessage}</p>}
           </div>
         </div>
       </div>

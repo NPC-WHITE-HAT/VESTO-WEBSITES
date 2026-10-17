@@ -16,6 +16,7 @@ export interface Product {
   colors: ProductColor[];
   sizes: string[];
   fabric: string;
+  stockQuantity?: number;
 }
 
 export interface CartItem {

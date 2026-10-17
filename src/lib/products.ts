@@ -22,5 +22,6 @@ export async function getProducts(): Promise<Product[]> {
     colors: product.colors || [],
     sizes: product.size || [],
     fabric: product.fabric,
+    stockQuantity: Number(product.stock_quantity ?? 0),
   }));
 }

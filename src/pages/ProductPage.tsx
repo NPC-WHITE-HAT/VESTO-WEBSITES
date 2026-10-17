@@ -5,6 +5,7 @@ import { useCart } from '@/context/CartContext';
 import { Link, navigate } from '@/router';
 import { ProductCard } from '@/components/ProductCard';
 import { getProducts } from '@/lib/products';
+import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
 import type { Product } from '@/types';
 
 export function ProductPage({
@@ -17,11 +18,19 @@ export function ProductPage({
   const [product, setProduct] = useState<Product | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
   const [size, setSize] = useState(product?.sizes[1] ?? product?.sizes[0] ?? '');
   const [color, setColor] = useState(product?.colors[0]?.name ?? '');
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [cartMessage, setCartMessage] = useState('');
+  const cartProductQuantity = cartItems
+    .filter((item) => item.product.id === id)
+    .reduce((total, item) => total + item.quantity, 0);
+  const remainingStock = Math.max(
+    0,
+    (product?.stockQuantity ?? 0) - cartProductQuantity,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -57,8 +66,16 @@ export function ProductPage({
     if (product) {
       setSize(product.sizes[1] ?? product.sizes[0] ?? '');
       setColor(product.colors[0]?.name ?? '');
+      setQty(1);
+      setCartMessage('');
     }
   }, [product]);
+
+  useEffect(() => {
+    setQty((quantity) =>
+      remainingStock > 0 ? Math.min(quantity, remainingStock) : 1,
+    );
+  }, [remainingStock]);
 
   if (loading) {
     return (
@@ -80,9 +97,14 @@ export function ProductPage({
   }
 
   const addToCart = () => {
-    addItem(product, size, color, qty);
+    if (!addItem(product, size, color, qty)) {
+      setCartMessage('Your cart already contains more than the available stock. Adjust the cart quantity before adding this item.');
+      return false;
+    }
+    setCartMessage('');
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
+    return true;
   };
 
   const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
@@ -92,6 +114,8 @@ export function ProductPage({
   const related = products
     .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
+  const stockStatus = getStockStatus(product.stockQuantity);
+  const outOfStock = remainingStock < 1;
 
   return (
     <div className="pt-16 md:pt-20">
@@ -127,6 +151,15 @@ export function ProductPage({
           <p className="mt-4 text-base font-medium tracking-wide text-ink-800">
             {formatPrice(product.price)}
           </p>
+          <p className={`mt-2 text-xs font-semibold uppercase tracking-wider ${getStockStatusClasses(stockStatus)}`}>
+            {stockStatus}
+            {!outOfStock && ` · ${product.stockQuantity} available`}
+          </p>
+          {outOfStock && stockStatus !== 'Out of Stock' && (
+            <p className="mt-1 text-xs text-ink-500">
+              All currently available units are already in your cart.
+            </p>
+          )}
           <p className="mt-6 max-w-lg text-sm leading-7 text-ink-600">
             {product.description}
           </p>
@@ -197,8 +230,9 @@ export function ProductPage({
               </button>
               <span className="w-12 text-center text-sm font-semibold">{qty}</span>
               <button
-                onClick={() => setQty((q) => q + 1)}
-                className="flex h-10 w-10 items-center justify-center text-ink-700 transition-colors hover:bg-ink-100"
+                onClick={() => setQty((q) => Math.min(remainingStock, q + 1))}
+                disabled={qty >= remainingStock}
+                className="flex h-10 w-10 items-center justify-center text-ink-700 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Increase quantity"
               >
                 <Plus className="h-4 w-4" />
@@ -208,24 +242,25 @@ export function ProductPage({
 
           {/* Actions */}
           <div className="mt-8 flex flex-col gap-3">
-            <button onClick={addToCart} className="btn-primary">
+            <button onClick={addToCart} disabled={outOfStock} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">
               {added ? (
                 <>
                   <Check className="h-4 w-4" /> Added to Cart
                 </>
               ) : (
-                'Add to Cart'
+                outOfStock ? 'Out of Stock' : 'Add to Cart'
               )}
             </button>
             <button
               onClick={() => {
-                addToCart();
-                navigate('/checkout');
+                if (addToCart()) navigate('/checkout');
               }}
-              className="btn-outline"
+              disabled={outOfStock}
+              className="btn-outline disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Proceed to Checkout
+              {outOfStock ? 'Out of Stock' : 'Proceed to Checkout'}
             </button>
+            {cartMessage && <p role="alert" className="text-sm text-red-700">{cartMessage}</p>}
             <a
               href={waLink}
               target="_blank"

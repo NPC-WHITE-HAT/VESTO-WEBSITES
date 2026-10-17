@@ -15,8 +15,10 @@ import { formatPrice, WHATSAPP_NUMBER } from '@/data/products';
 import { Link, navigate } from '@/router';
 import { supabase } from '@/lib/supabase';
 import { getUpiConfig, buildUpiDeepLink, buildUpiQrPayload, type UpiConfig } from '@/lib/upi';
+import { getStockQuantities } from '@/lib/inventory';
 
 type Step = 'details' | 'payment' | 'reference' | 'success';
+const CHECKOUT_REQUEST_KEY = 'vesto-checkout-request-key';
 
 interface OrderResult {
   orderNumber: string;
@@ -24,7 +26,7 @@ interface OrderResult {
 }
 
 export function CheckoutPage() {
-  const { items, subtotal, clear } = useCart();
+  const { items, subtotal, clear, updateStock } = useCart();
 
   const [step, setStep] = useState<Step>('details');
   const [form, setForm] = useState({
@@ -41,7 +43,45 @@ export function CheckoutPage() {
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [paymentStockIssue, setPaymentStockIssue] = useState(false);
   const [order, setOrder] = useState<OrderResult | null>(null);
+  const [checkoutRequestId] = useState(() => {
+    const existingKey = sessionStorage.getItem(CHECKOUT_REQUEST_KEY);
+    if (existingKey) return existingKey;
+    const newKey = crypto.randomUUID();
+    sessionStorage.setItem(CHECKOUT_REQUEST_KEY, newKey);
+    return newKey;
+  });
+
+  const validateCurrentStock = async () => {
+    const currentStock = await getStockQuantities(
+      items.map((item) => item.product.id),
+    );
+    for (const [productId, quantity] of Object.entries(currentStock)) {
+      updateStock(productId, quantity);
+    }
+
+    const quantityByProduct = items.reduce<Record<string, number>>(
+      (quantities, item) => {
+        quantities[item.product.id] =
+          (quantities[item.product.id] ?? 0) + item.quantity;
+        return quantities;
+      },
+      {},
+    );
+    const unavailable = Object.entries(quantityByProduct).find(
+      ([productId, quantity]) => quantity > (currentStock[productId] ?? 0),
+    );
+
+    if (unavailable) {
+      const productName =
+        items.find((item) => item.product.id === unavailable[0])?.product.name ??
+        'An item in your cart';
+      throw new Error(
+        `${productName} has only ${currentStock[unavailable[0]] ?? 0} unit(s) available. Return to your cart and adjust the quantity before continuing.`,
+      );
+    }
+  };
 
   const update = (k: keyof typeof form, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -93,7 +133,8 @@ export function CheckoutPage() {
         </div>
         <p className="mt-5 max-w-sm text-sm leading-relaxed text-ink-600">
           Your payment is awaiting verification. We will confirm your order
-          after verifying the UPI transaction.
+          after verifying the UPI transaction. Stock is held for 24 hours while
+          payment is verified.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link to="/shop" className="btn-primary">
@@ -116,6 +157,19 @@ export function CheckoutPage() {
   const handleProceedToPayment = async () => {
     if (!detailsValid) return;
     setLoadingConfig(true);
+    setSubmitError('');
+    try {
+      await validateCurrentStock();
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Could not verify stock. Please try again.',
+      );
+      setLoadingConfig(false);
+      return;
+    }
+
     try {
       const config = await getUpiConfig();
       setUpiConfig(config);
@@ -146,47 +200,75 @@ export function CheckoutPage() {
     if (!detailsValid || !refValid || items.length === 0) return;
     setSubmitting(true);
     setSubmitError('');
+    setPaymentStockIssue(false);
 
-    const orderItems = items.map((i) => ({
-      productId: i.product.id,
-      name: i.product.name,
-      size: i.size,
-      color: i.color,
-      quantity: i.quantity,
-      price: i.product.price,
-    }));
+    try {
+      const orderItems = items.map((i) => ({
+        productId: i.product.id,
+        name: i.product.name,
+        size: i.size,
+        color: i.color,
+        quantity: i.quantity,
+        price: i.product.price,
+      }));
 
-    const { data, error } = await supabase
-      .from('orders')
-      .insert({
-        customer_name: form.name.trim(),
-        phone: form.phone.trim(),
-        address: form.address.trim(),
-        city: form.city.trim(),
-        state: form.state.trim(),
-        pincode: form.pincode.trim(),
-        items: orderItems,
-        total_amount: subtotal,
-        payment_method: 'UPI',
-        payment_reference: upiRef.trim(),
-        payment_status: 'verification_pending',
-        order_status: 'pending',
-      })
-      .select('order_number, total_amount')
-      .single();
+      const { data, error } = await supabase.rpc('place_order_with_stock', {
+        p_idempotency_key: checkoutRequestId,
+        p_order: {
+          customer_name: form.name.trim(),
+          phone: form.phone.trim(),
+          address: form.address.trim(),
+          city: form.city.trim(),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+          items: orderItems,
+          total_amount: subtotal,
+          payment_method: 'UPI',
+          payment_reference: upiRef.trim(),
+        },
+      });
 
-    if (error || !data) {
-      setSubmitting(false);
+      const placedOrder = Array.isArray(data) ? data[0] : data;
+      if (error || !placedOrder) {
+        const message = error?.message ?? '';
+        if (message.includes('INSUFFICIENT_STOCK:')) {
+          setPaymentStockIssue(true);
+          setSubmitError(
+            'Stock changed after UPI payment. Do not pay again; contact VESTO to resolve your payment before changing the order.',
+          );
+        } else if (message.includes('CHECKOUT_ORDER_EXPIRED')) {
+          setPaymentStockIssue(true);
+          setSubmitError(
+            'This order reservation has expired. Do not pay again; contact VESTO to resolve your payment.',
+          );
+        } else if (message.toLowerCase().includes('idempotency key was reused')) {
+          setPaymentStockIssue(true);
+          setSubmitError(
+            'This checkout request was already submitted with different details. Do not pay again; contact VESTO to resolve the order.',
+          );
+        } else {
+          setSubmitError(
+            'Could not place your order. Please check your connection and try again.',
+          );
+        }
+        return;
+      }
+
+      setOrder({
+        orderNumber: placedOrder.order_number,
+        totalAmount: Number(placedOrder.total_amount),
+      });
+      sessionStorage.removeItem(CHECKOUT_REQUEST_KEY);
+      clear();
+      setStep('success');
+    } catch {
+      setPaymentStockIssue(true);
       setSubmitError(
-        'Could not place your order. Please check your connection and try again.',
+        'We could not confirm the checkout result. Do not pay again. Retry once with the same details; if it still fails, contact VESTO.',
       );
-      return;
+    } finally {
+      setSubmitting(false);
     }
-
-    setOrder({ orderNumber: data.order_number, totalAmount: Number(data.total_amount) });
-    clear();
-    setSubmitting(false);
-    setStep('success');
   };
 
   // --- Render ---
@@ -337,6 +419,21 @@ export function CheckoutPage() {
                     Fill in all delivery details to continue.
                   </p>
                 )}
+                {submitError && (
+                  <div className="mt-3">
+                    <p role="alert" className="text-sm text-red-600">
+                      {submitError}
+                    </p>
+                    {!paymentStockIssue && (
+                      <Link
+                        to="/cart"
+                        className="mt-2 inline-block text-xs font-semibold underline"
+                      >
+                        Review cart quantities
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -464,7 +561,23 @@ export function CheckoutPage() {
                 </div>
 
                 {submitError && (
-                  <p className="mt-4 text-sm text-red-600">{submitError}</p>
+                  <div className="mt-4">
+                    <p role="alert" className="text-sm text-red-600">{submitError}</p>
+                    {paymentStockIssue ? (
+                      <a
+                        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi VESTO, please help me resolve my checkout order. UPI reference: ${upiRef.trim()}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-block text-xs font-semibold underline"
+                      >
+                        Contact VESTO about this order
+                      </a>
+                    ) : (
+                      <Link to="/cart" className="mt-2 inline-block text-xs font-semibold underline">
+                        Review cart quantities
+                      </Link>
+                    )}
+                  </div>
                 )}
 
                 <button

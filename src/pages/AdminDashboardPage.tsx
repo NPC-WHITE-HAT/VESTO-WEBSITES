@@ -25,6 +25,7 @@ import { navigate } from '@/router';
 import { formatPrice } from '@/data/products';
 import { getUpiConfig, updateUpiConfig } from '@/lib/upi';
 import { uploadImage as uploadCloudinaryImage } from '@/lib/cloudinary';
+import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
 import {
   createOffer,
   deleteOffer,
@@ -71,6 +72,7 @@ interface ProductRow {
   }[];
   sizes: string[];
   fabric: string;
+  stock_quantity: number;
   created_at?: string;
 }
 
@@ -85,12 +87,14 @@ interface ProductForm {
   colors: ProductColor[];
   sizes: string;
   fabric: string;
+  stockQuantity: string;
 }
 
 const STATUS_STYLES: Record<string, string> = {
   verification_pending: 'bg-amber-100 text-amber-800',
   paid: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-800',
+  expired: 'bg-red-100 text-red-800',
   pending: 'bg-ink-100 text-ink-700',
   confirmed: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800',
@@ -115,6 +119,7 @@ const EMPTY_PRODUCT: ProductForm = {
   colors: [{ name: 'Black', hex: '#1a1916' }],
   sizes: 'S, M, L, XL, XXL',
   fabric: '',
+  stockQuantity: '0',
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -127,6 +132,16 @@ function StatusBadge({ status }: { status: string }) {
       }`}
     >
       {label}
+    </span>
+  );
+}
+
+function StockStatusLabel({ quantity }: { quantity: number }) {
+  const status = getStockStatus(quantity);
+
+  return (
+    <span className={`text-xs font-semibold ${getStockStatusClasses(status)}`}>
+      {status} · {quantity}
     </span>
   );
 }
@@ -284,32 +299,43 @@ export function AdminDashboardPage() {
 
   const updateOrderStatus = async (
     id: string,
-    paymentStatus: string,
-    orderStatus: string,
+    transition: 'confirm' | 'reject' | 'cancel',
     action: string,
   ) => {
+    if (
+      transition === 'cancel' &&
+      !window.confirm(
+        'Cancel this confirmed order and return its units to stock? Process any customer refund separately.',
+      )
+    ) {
+      return;
+    }
+
     setActionLoading(action);
+    const { data, error } = await supabase.rpc('transition_order_inventory', {
+      p_order_id: id,
+      p_action: transition,
+    });
 
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        payment_status: paymentStatus,
-        order_status: orderStatus,
-      })
-      .eq('id', id);
-
-    if (!error) {
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === id
-            ? {
-                ...o,
-                payment_status: paymentStatus,
-                order_status: orderStatus,
-              }
-            : o,
-        ),
-      );
+    if (error) {
+      console.error(`Failed to ${transition} order:`, error);
+      alert(`Could not ${transition} order: ${error.message}`);
+    } else {
+      const status = Array.isArray(data) ? data[0] : data;
+      if (status) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === id
+              ? {
+                  ...order,
+                  payment_status: status.payment_status,
+                  order_status: status.order_status,
+                }
+              : order,
+          ),
+        );
+      }
+      await fetchProducts();
     }
 
     setActionLoading(null);
@@ -347,6 +373,7 @@ export function AdminDashboardPage() {
       colors: product.colors ?? [],
       sizes: product.sizes.join(', '),
       fabric: product.fabric,
+      stockQuantity: String(product.stock_quantity ?? 0),
     });
 
     setShowProductModal(true);
@@ -366,6 +393,15 @@ export function AdminDashboardPage() {
 
     if (!productForm.price.trim()) {
       alert('Please enter product price.');
+      return;
+    }
+    if (!/^\d+$/.test(productForm.stockQuantity)) {
+      alert('Stock quantity must be a non-negative whole number.');
+      return;
+    }
+    const stockQuantity = Number(productForm.stockQuantity);
+    if (!Number.isSafeInteger(stockQuantity) || stockQuantity > 2147483647) {
+      alert('Stock quantity is outside the supported range.');
       return;
     }
 
@@ -410,6 +446,7 @@ export function AdminDashboardPage() {
 
     let error;
 
+    let productId = editingProduct?.id;
     if (editingProduct) {
       const result = await supabase
         .from('products')
@@ -424,6 +461,7 @@ export function AdminDashboardPage() {
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-|-$/g, '');
+      productId = newId;
 
       const result = await supabase.from('products').insert({
         id: newId,
@@ -433,11 +471,20 @@ export function AdminDashboardPage() {
       error = result.error;
     }
 
+    if (!error && productId) {
+      const stockResult = await supabase.rpc('set_product_stock', {
+        p_product_id: productId,
+        p_stock_quantity: stockQuantity,
+      });
+      error = stockResult.error;
+    }
+
     setSavingProduct(false);
 
     if (error) {
       console.error(error);
       alert(`Could not save product: ${error.message}`);
+      await fetchProducts();
       return;
     }
 
@@ -800,14 +847,14 @@ export function AdminDashboardPage() {
                               onClick={() =>
                                 updateOrderStatus(
                                   o.id,
-                                  'paid',
-                                  'confirmed',
+                                  'confirm',
                                   `verify-${o.id}`,
                                 )
                               }
                               disabled={
                                 actionLoading === `verify-${o.id}` ||
-                                o.payment_status === 'paid'
+                                o.payment_status !== 'verification_pending' ||
+                                o.order_status !== 'pending'
                               }
                               className="inline-flex items-center gap-1 bg-green-700 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white disabled:opacity-40"
                             >
@@ -824,14 +871,14 @@ export function AdminDashboardPage() {
                               onClick={() =>
                                 updateOrderStatus(
                                   o.id,
-                                  'rejected',
-                                  'cancelled',
+                                  'reject',
                                   `reject-${o.id}`,
                                 )
                               }
                               disabled={
                                 actionLoading === `reject-${o.id}` ||
-                                o.payment_status === 'rejected'
+                                o.payment_status !== 'verification_pending' ||
+                                o.order_status !== 'pending'
                               }
                               className="inline-flex items-center gap-1 bg-red-700 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white disabled:opacity-40"
                             >
@@ -843,6 +890,28 @@ export function AdminDashboardPage() {
 
                               Reject
                             </button>
+
+                            {o.payment_status === 'paid' &&
+                              o.order_status === 'confirmed' && (
+                                <button
+                                  onClick={() =>
+                                    updateOrderStatus(
+                                      o.id,
+                                      'cancel',
+                                      `cancel-${o.id}`,
+                                    )
+                                  }
+                                  disabled={actionLoading === `cancel-${o.id}`}
+                                  className="inline-flex items-center gap-1 border border-red-300 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-red-700 disabled:opacity-40"
+                                >
+                                  {actionLoading === `cancel-${o.id}` ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <XCircle className="h-3 w-3" />
+                                  )}
+                                  Cancel
+                                </button>
+                              )}
 
                           </div>
                         </td>
@@ -959,14 +1028,14 @@ export function AdminDashboardPage() {
                         onClick={() =>
                           updateOrderStatus(
                             o.id,
-                            'paid',
-                            'confirmed',
+                            'confirm',
                             `verify-${o.id}`,
                           )
                         }
                         disabled={
                           actionLoading === `verify-${o.id}` ||
-                          o.payment_status === 'paid'
+                          o.payment_status !== 'verification_pending' ||
+                          o.order_status !== 'pending'
                         }
                         className="inline-flex flex-1 items-center justify-center gap-1 bg-green-700 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-white disabled:opacity-40"
                       >
@@ -977,19 +1046,36 @@ export function AdminDashboardPage() {
                         onClick={() =>
                           updateOrderStatus(
                             o.id,
-                            'rejected',
-                            'cancelled',
+                            'reject',
                             `reject-${o.id}`,
                           )
                         }
                         disabled={
                           actionLoading === `reject-${o.id}` ||
-                          o.payment_status === 'rejected'
+                          o.payment_status !== 'verification_pending' ||
+                          o.order_status !== 'pending'
                         }
                         className="inline-flex flex-1 items-center justify-center gap-1 bg-red-700 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-white disabled:opacity-40"
                       >
                         Reject
                       </button>
+
+                      {o.payment_status === 'paid' &&
+                        o.order_status === 'confirmed' && (
+                          <button
+                            onClick={() =>
+                              updateOrderStatus(
+                                o.id,
+                                'cancel',
+                                `cancel-${o.id}`,
+                              )
+                            }
+                            disabled={actionLoading === `cancel-${o.id}`}
+                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 border border-red-300 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-red-700 disabled:opacity-40"
+                          >
+                            Cancel
+                          </button>
+                        )}
 
                     </div>
                   </div>
@@ -1062,6 +1148,10 @@ export function AdminDashboardPage() {
                       </th>
 
                       <th className="py-3 pr-4">
+                        Stock
+                      </th>
+
+                      <th className="py-3 pr-4">
                         New
                       </th>
 
@@ -1112,6 +1202,10 @@ export function AdminDashboardPage() {
 
                         <td className="py-4 pr-4 font-semibold">
                           {formatPrice(Number(product.price))}
+                        </td>
+
+                        <td className="py-4 pr-4">
+                          <StockStatusLabel quantity={Number(product.stock_quantity ?? 0)} />
                         </td>
 
                         <td className="py-4 pr-4">
@@ -1198,6 +1292,9 @@ export function AdminDashboardPage() {
                       <p className="mt-1 font-semibold text-ink-900">
                         {formatPrice(Number(product.price))}
                       </p>
+                      <div className="mt-1">
+                        <StockStatusLabel quantity={Number(product.stock_quantity ?? 0)} />
+                      </div>
                       <p
                         className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${
                           product.is_new ? 'text-green-700' : 'text-ink-400'
@@ -1798,6 +1895,36 @@ function ProductModal({
               <option>Trousers</option>
               <option>Jeans</option>
             </select>
+
+          </div>
+
+          {/* STOCK QUANTITY */}
+
+          <div>
+
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Available Stock
+            </label>
+
+            <input
+              type="number"
+              min="0"
+              max="2147483647"
+              step="1"
+              inputMode="numeric"
+              value={form.stockQuantity}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  stockQuantity: e.target.value,
+                })
+              }
+              placeholder="0"
+              className="input-vesto mt-1.5"
+            />
+            <p className="mt-1 text-xs text-ink-500">
+              Enter a verified whole-number count. New products start at zero.
+            </p>
 
           </div>
 

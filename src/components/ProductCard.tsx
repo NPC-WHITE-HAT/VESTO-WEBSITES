@@ -4,6 +4,7 @@ import type { Product } from '@/types';
 import { Link } from '@/router';
 import { formatPrice } from '@/data/products';
 import { useCart } from '@/context/CartContext';
+import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
 
 export function ProductCard({
   product,
@@ -16,11 +17,20 @@ export function ProductCard({
 }) {
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
+  const stockStatus = getStockStatus(product.stockQuantity);
+  const outOfStock = stockStatus === 'Out of Stock';
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem(product, product.sizes[1] ?? product.sizes[0], product.colors[0].name, 1);
+    if (outOfStock) return;
+    const addedToCart = addItem(
+      product,
+      product.sizes[1] ?? product.sizes[0],
+      product.colors[0]?.name ?? '',
+      1,
+    );
+    if (!addedToCart) return;
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
   };
@@ -68,12 +78,19 @@ export function ProductCard({
         <p className="mt-1 text-xs font-medium tracking-wide text-ink-700">
           {formatPrice(product.price)}
         </p>
+        <p className={`mt-2 text-[10px] font-semibold uppercase tracking-wider ${getStockStatusClasses(stockStatus)}`}>
+          {stockStatus}
+          {stockStatus !== 'Out of Stock' && ` · ${product.stockQuantity} available`}
+        </p>
         {showAddButton && (
           <button
             onClick={handleAdd}
-            className="mt-3 inline-flex items-center justify-center gap-2 border border-ink-200 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-800 transition-all duration-300 hover:border-accent hover:text-accent-dark"
+            disabled={outOfStock}
+            className="mt-3 inline-flex items-center justify-center gap-2 border border-ink-200 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-800 transition-all duration-300 hover:border-accent hover:text-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {added ? (
+            {outOfStock ? (
+              'Out of Stock'
+            ) : added ? (
               <>
                 <Check className="h-3.5 w-3.5" /> Added
               </>
