@@ -15,6 +15,9 @@ import {
   Save,
   MoveUp,
   MoveDown,
+  Eye,
+  Copy,
+  MapPin,
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
@@ -35,14 +38,14 @@ interface OrderRow {
   order_number: string;
   customer_name: string;
   phone: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
   items: {
     name: string;
-    size: string;
-    color: string;
+    size?: string | null;
+    color?: string | null;
     quantity: number;
     price: number;
   }[];
@@ -134,6 +137,7 @@ export function AdminDashboardPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState('');
   const [productsLoading, setProductsLoading] = useState(true);
   const [offersLoading, setOffersLoading] = useState(true);
 
@@ -144,6 +148,7 @@ export function AdminDashboardPage() {
   const [newBannerFile, setNewBannerFile] = useState<File | null>(null);
   const [newBannerPreview, setNewBannerPreview] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
 
   const [showConfig, setShowConfig] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -169,13 +174,19 @@ export function AdminDashboardPage() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    setOrdersError('');
 
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select(
+        'id, order_number, customer_name, phone, address, city, state, pincode, items, total_amount, payment_method, payment_reference, payment_status, order_status, created_at',
+      )
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error('Failed to fetch orders:', error);
+      setOrdersError('Could not load orders. Please refresh and try again.');
+    } else if (data) {
       setOrders(data as OrderRow[]);
     }
 
@@ -699,6 +710,10 @@ export function AdminDashboardPage() {
                 <div className="flex justify-center py-20">
                   <Loader2 className="h-6 w-6 animate-spin text-ink-400" />
                 </div>
+              ) : ordersError ? (
+                <p role="alert" className="py-20 text-center text-sm text-red-700">
+                  {ordersError}
+                </p>
               ) : orders.length === 0 ? (
                 <p className="py-20 text-center text-sm text-ink-500">
                   No orders yet.
@@ -774,6 +789,14 @@ export function AdminDashboardPage() {
                           <div className="flex gap-2">
 
                             <button
+                              onClick={() => setSelectedOrder(o)}
+                              className="inline-flex items-center gap-1 border border-ink-300 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-800"
+                            >
+                              <Eye className="h-3 w-3" />
+                              View Details
+                            </button>
+
+                            <button
                               onClick={() =>
                                 updateOrderStatus(
                                   o.id,
@@ -840,6 +863,10 @@ export function AdminDashboardPage() {
                 <div className="flex justify-center py-20">
                   <Loader2 className="h-6 w-6 animate-spin text-ink-400" />
                 </div>
+              ) : ordersError ? (
+                <p role="alert" className="py-20 text-center text-sm text-red-700">
+                  {ordersError}
+                </p>
               ) : orders.length === 0 ? (
                 <p className="py-20 text-center text-sm text-ink-500">
                   No orders yet.
@@ -888,6 +915,14 @@ export function AdminDashboardPage() {
                       <StatusBadge status={o.payment_status} />
                       <StatusBadge status={o.order_status} />
                     </div>
+
+                    <button
+                      onClick={() => setSelectedOrder(o)}
+                      className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 border border-ink-300 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-ink-800"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Details
+                    </button>
 
                     <button
                       onClick={() =>
@@ -1408,6 +1443,210 @@ export function AdminDashboardPage() {
         />
       )}
 
+      {selectedOrder && (
+        <OrderDetailsModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
+
+    </div>
+  );
+}
+
+function OrderDetailsModal({
+  order,
+  onClose,
+}: {
+  order: OrderRow;
+  onClose: () => void;
+}) {
+  const [copyMessage, setCopyMessage] = useState('');
+  const addressParts = [
+    order.address?.trim(),
+    order.city?.trim(),
+    order.state?.trim(),
+    order.pincode?.trim(),
+  ].filter((part): part is string => Boolean(part));
+  const hasCompleteAddress = [
+    order.address,
+    order.city,
+    order.state,
+    order.pincode,
+  ].every((part) => Boolean(part?.trim()));
+  const fullAddress = addressParts.join(', ');
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  const handleCopyAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(fullAddress);
+      setCopyMessage('Address copied.');
+    } catch {
+      setCopyMessage('Could not copy address. Please copy it manually.');
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto overscroll-contain bg-ink-950/50 p-2 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-details-title"
+        className="my-2 max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto bg-white p-4 shadow-xl sm:my-0 sm:max-h-[calc(100dvh-2rem)] sm:p-7"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-ink-200 pb-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">
+              Order details
+            </p>
+            <h2
+              id="order-details-title"
+              className="mt-1 font-display text-2xl text-ink-900"
+            >
+              #{order.order_number}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close order details"
+            className="rounded p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-900"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-6 sm:grid-cols-2">
+          <section>
+            <h3 className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Customer
+            </h3>
+            <p className="mt-2 break-words text-sm font-semibold text-ink-900">
+              {order.customer_name}
+            </p>
+            <p className="mt-1 break-words text-sm text-ink-700">
+              {order.phone}
+            </p>
+          </section>
+
+          <section>
+            <h3 className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Delivery address
+            </h3>
+            {addressParts.length > 0 ? (
+              <address className="mt-2 whitespace-pre-line break-words text-sm not-italic leading-relaxed text-ink-800">
+                {addressParts.join('\n')}
+              </address>
+            ) : (
+              <p className="mt-2 text-sm text-ink-600">
+                Address not available for this order.
+              </p>
+            )}
+            {addressParts.length > 0 && !hasCompleteAddress && (
+              <p className="mt-2 text-xs text-amber-700">
+                Some address details are missing for this order.
+              </p>
+            )}
+            {hasCompleteAddress && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={handleCopyAddress}
+                  className="inline-flex min-h-10 items-center gap-2 border border-ink-300 px-3 py-2 text-xs font-semibold text-ink-800"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy address
+                </button>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-10 items-center gap-2 bg-ink-900 px-3 py-2 text-xs font-semibold text-white"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Directions
+                </a>
+              </div>
+            )}
+            {copyMessage && (
+              <p role="status" className="mt-2 text-xs text-ink-600">
+                {copyMessage}
+              </p>
+            )}
+          </section>
+        </div>
+
+        <section className="mt-6 border-t border-ink-200 pt-5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+            Order items
+          </h3>
+          {items.length > 0 ? (
+            <ul className="mt-3 divide-y divide-ink-100">
+              {items.map((item, index) => (
+                <li
+                  key={`${item.name}-${index}`}
+                  className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="break-words font-medium text-ink-900">
+                      {item.name}
+                    </p>
+                    <p className="break-words text-xs text-ink-500">
+                      {[item.size, item.color].filter(Boolean).join(' · ') ||
+                        'Product options unavailable'}{' '}
+                      · Qty {item.quantity}
+                    </p>
+                  </div>
+                  <p className="shrink-0 font-medium text-ink-800">
+                    {formatPrice(Number(item.price) * Number(item.quantity))}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-ink-600">
+              Order items are not available for this order.
+            </p>
+          )}
+        </section>
+
+        <section className="mt-5 grid gap-4 border-t border-ink-200 pt-5 sm:grid-cols-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Total amount
+            </p>
+            <p className="mt-1 text-lg font-semibold text-ink-900">
+              {formatPrice(Number(order.total_amount))}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Payment reference
+            </p>
+            <p className="mt-1 break-all text-sm text-ink-800">
+              {order.payment_reference || 'Not available'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Payment status
+            </p>
+            <div className="mt-2">
+              <StatusBadge status={order.payment_status} />
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Order status
+            </p>
+            <div className="mt-2">
+              <StatusBadge status={order.order_status} />
+            </div>
+          </div>
+        </section>
+      </section>
     </div>
   );
 }
