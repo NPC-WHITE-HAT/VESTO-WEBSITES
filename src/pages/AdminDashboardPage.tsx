@@ -18,6 +18,7 @@ import {
   Eye,
   Copy,
   MapPin,
+  MessageCircle,
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
@@ -146,6 +147,41 @@ function StockStatusLabel({ quantity }: { quantity: number }) {
   );
 }
 
+function normalizeWhatsAppPhone(phone: string): string | null {
+  const trimmed = phone.trim();
+  if (!trimmed) return null;
+
+  const isInternational = trimmed.startsWith('+') || trimmed.startsWith('00');
+  let digits = trimmed.replace(/\D/g, '');
+
+  if (trimmed.startsWith('00')) digits = digits.slice(2);
+  if (digits.startsWith('91')) {
+    const nationalNumber = digits.slice(2);
+    return /^[6-9]\d{9}$/.test(nationalNumber) ? `91${nationalNumber}` : null;
+  }
+  if (digits.startsWith('0')) {
+    const nationalNumber = digits.slice(1);
+    return /^[6-9]\d{9}$/.test(nationalNumber) ? `91${nationalNumber}` : null;
+  }
+  if (/^[6-9]\d{9}$/.test(digits)) return `91${digits}`;
+  if (isInternational && /^\d{8,15}$/.test(digits)) return digits;
+  return null;
+}
+
+function buildOrderConfirmationMessage(order: OrderRow): string {
+  const customerName = order.customer_name.trim() || 'Customer';
+  return `Dear ${customerName},
+
+Thank you for shopping with VESTO CLOTHING!
+
+We're pleased to confirm that your order #${order.order_number} has been confirmed. Your order is being prepared. We'll share delivery updates with you shortly.
+
+Thank you for choosing VESTO. We appreciate your trust and look forward to serving you again!
+
+Best regards,
+Team VESTO CLOTHING`;
+}
+
 export function AdminDashboardPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [products, setProducts] = useState<ProductRow[]>([]);
@@ -164,6 +200,9 @@ export function AdminDashboardPage() {
   const [newBannerPreview, setNewBannerPreview] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+  const [verificationPromptOrder, setVerificationPromptOrder] =
+    useState<OrderRow | null>(null);
+  const [whatsAppError, setWhatsAppError] = useState('');
 
   const [showConfig, setShowConfig] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -311,6 +350,8 @@ export function AdminDashboardPage() {
       return;
     }
 
+    if (transition === 'confirm') setVerificationPromptOrder(null);
+    setWhatsAppError('');
     setActionLoading(action);
     const { data, error } = await supabase.rpc('transition_order_inventory', {
       p_order_id: id,
@@ -334,11 +375,53 @@ export function AdminDashboardPage() {
               : order,
           ),
         );
+        if (
+          transition === 'confirm' &&
+          status.payment_status === 'paid' &&
+          status.order_status === 'confirmed'
+        ) {
+          const verifiedOrder = orders.find((order) => order.id === id);
+          if (verifiedOrder) {
+            setVerificationPromptOrder({
+              ...verifiedOrder,
+              payment_status: status.payment_status,
+              order_status: status.order_status,
+            });
+          }
+        }
       }
       await fetchProducts();
     }
 
     setActionLoading(null);
+  };
+
+  const openOrderWhatsApp = (order: OrderRow) => {
+    if (
+      order.payment_status !== 'paid' ||
+      order.order_status !== 'confirmed'
+    ) {
+      setWhatsAppError(
+        `WhatsApp confirmation is available only after order #${order.order_number} is verified.`,
+      );
+      return;
+    }
+
+    const phone = normalizeWhatsAppPhone(order.phone ?? '');
+    if (!phone) {
+      setWhatsAppError(
+        `WhatsApp could not be opened for order #${order.order_number}: the saved phone number is missing or invalid.`,
+      );
+      return;
+    }
+
+    setWhatsAppError('');
+    const message = buildOrderConfirmationMessage(order);
+    window.open(
+      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
   };
 
   /*
@@ -749,6 +832,12 @@ export function AdminDashboardPage() {
 
         {activeTab === 'orders' && (
           <>
+            {whatsAppError && (
+              <p role="alert" className="mt-5 border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {whatsAppError}
+              </p>
+            )}
+
             {/* DESKTOP */}
 
             <div className="mt-8 hidden min-w-0 overflow-x-auto lg:block">
@@ -833,7 +922,7 @@ export function AdminDashboardPage() {
                         </td>
 
                         <td className="py-3 pr-4">
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
 
                             <button
                               onClick={() => setSelectedOrder(o)}
@@ -889,6 +978,25 @@ export function AdminDashboardPage() {
                               )}
 
                               Reject
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openOrderWhatsApp(o)}
+                              disabled={
+                                o.payment_status !== 'paid' ||
+                                o.order_status !== 'confirmed'
+                              }
+                              title={
+                                o.payment_status === 'paid' &&
+                                o.order_status === 'confirmed'
+                                  ? 'Open a confirmation message in WhatsApp'
+                                  : 'Available after the order is verified'
+                              }
+                              className="inline-flex items-center gap-1 bg-green-700 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <MessageCircle className="h-3 w-3" />
+                              WhatsApp
                             </button>
 
                             {o.payment_status === 'paid' &&
@@ -1022,7 +1130,7 @@ export function AdminDashboardPage() {
                       </div>
                     )}
 
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
 
                       <button
                         onClick={() =>
@@ -1058,6 +1166,25 @@ export function AdminDashboardPage() {
                         className="inline-flex flex-1 items-center justify-center gap-1 bg-red-700 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-white disabled:opacity-40"
                       >
                         Reject
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openOrderWhatsApp(o)}
+                        disabled={
+                          o.payment_status !== 'paid' ||
+                          o.order_status !== 'confirmed'
+                        }
+                        title={
+                          o.payment_status === 'paid' &&
+                          o.order_status === 'confirmed'
+                            ? 'Open a confirmation message in WhatsApp'
+                            : 'Available after the order is verified'
+                        }
+                        className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 bg-green-700 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        WhatsApp
                       </button>
 
                       {o.payment_status === 'paid' &&
@@ -1545,6 +1672,76 @@ export function AdminDashboardPage() {
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
         />
+      )}
+
+      {verificationPromptOrder && (
+        <div
+          className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-ink-950/50 p-3 sm:items-center sm:p-5"
+          onClick={() => setVerificationPromptOrder(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="verified-order-title"
+            className="my-6 w-full max-w-md bg-white p-5 shadow-xl sm:my-0 sm:p-7"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-green-700">
+                  Order verified
+                </p>
+                <h2
+                  id="verified-order-title"
+                  className="mt-2 font-display text-2xl text-ink-900"
+                >
+                  Confirmation message
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVerificationPromptOrder(null)}
+                aria-label="Close confirmation prompt"
+                className="rounded p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-900"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-ink-600">
+              Order #{verificationPromptOrder.order_number} is confirmed.
+              Open a pre-filled WhatsApp message to{' '}
+              {verificationPromptOrder.customer_name || 'the customer'}? Review
+              it in WhatsApp and press Send when ready.
+            </p>
+            {whatsAppError && (
+              <p role="alert" className="mt-3 text-sm text-red-700">
+                {whatsAppError}
+              </p>
+            )}
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setVerificationPromptOrder(null)}
+                className="btn-ghost"
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openOrderWhatsApp(verificationPromptOrder);
+                  if (normalizeWhatsAppPhone(verificationPromptOrder.phone)) {
+                    setVerificationPromptOrder(null);
+                  }
+                }}
+                className="inline-flex min-h-11 items-center justify-center gap-2 bg-green-700 px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-white hover:bg-green-800"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Open WhatsApp
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
     </div>
