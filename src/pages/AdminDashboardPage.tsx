@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import {
   Loader2,
@@ -262,6 +262,8 @@ export function AdminDashboardPage() {
     useState<ProductForm>(EMPTY_PRODUCT);
 
   const [savingProduct, setSavingProduct] = useState(false);
+  const [productSaveError, setProductSaveError] = useState('');
+  const savingProductRef = useRef(false);
 
   const [activeTab, setActiveTab] =
     useState<'orders' | 'products' | 'banners'>('orders');
@@ -509,6 +511,7 @@ export function AdminDashboardPage() {
   const openAddProduct = () => {
     setEditingProduct(null);
     setProductForm(EMPTY_PRODUCT);
+    setProductSaveError('');
     setShowProductModal(true);
   };
 
@@ -520,6 +523,7 @@ export function AdminDashboardPage() {
 
   const openEditProduct = (product: ProductRow) => {
     setEditingProduct(product);
+    setProductSaveError('');
 
     setProductForm({
       id: product.id,
@@ -558,6 +562,9 @@ export function AdminDashboardPage() {
    */
 
   const saveProduct = async () => {
+    if (savingProductRef.current) return;
+    setProductSaveError('');
+
     if (!productForm.name.trim()) {
       alert('Please enter product name.');
       return;
@@ -629,8 +636,6 @@ export function AdminDashboardPage() {
       return;
     }
 
-    setSavingProduct(true);
-
     const productData = {
       name: productForm.name.trim(),
       price: Number(productForm.price),
@@ -641,36 +646,62 @@ export function AdminDashboardPage() {
       fabric: productForm.fabric.trim(),
     };
 
-    let error: { message: string } | null = null;
+    savingProductRef.current = true;
+    setSavingProduct(true);
+    try {
+      let productId: string;
+      if (editingProduct) {
+        productId = editingProduct.id;
+        const result = await supabase
+          .from('products')
+          .update(productData)
+          .eq('id', productId)
+          .select('id')
+          .maybeSingle();
 
-    let productId = editingProduct?.id;
-    if (editingProduct) {
-      const result = await supabase
-        .from('products')
-        .update(productData)
-        .eq('id', editingProduct.id);
-
-      error = result.error;
-    } else {
-      const newId =
-        productForm.id.trim() ||
-        productForm.name
+        if (result.error) throw result.error;
+        if (!result.data) {
+          throw new Error('This product no longer exists. Refresh the product list and try again.');
+        }
+      } else {
+        const baseId = (productForm.id.trim() || productForm.name)
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '');
-      productId = newId;
+          .replace(/^-|-$/g, '') || 'product';
+        let suffix = 1;
 
-      const result = await supabase.from('products').insert({
-        id: newId,
-        ...productData,
-        colors,
-        sizes: [],
-      });
+        while (true) {
+          const candidateId = suffix === 1 ? baseId : `${baseId}-${suffix}`;
+          const existing = await supabase
+            .from('products')
+            .select('id')
+            .eq('id', candidateId)
+            .maybeSingle();
+          if (existing.error) throw existing.error;
+          if (existing.data) {
+            suffix += 1;
+            continue;
+          }
 
-      error = result.error;
-    }
+          const inserted = await supabase.from('products').insert({
+            id: candidateId,
+            ...productData,
+            colors,
+            sizes: [],
+          });
+          if (
+            inserted.error?.code === '23505' &&
+            inserted.error.message.includes('products_pkey')
+          ) {
+            suffix += 1;
+            continue;
+          }
+          if (inserted.error) throw inserted.error;
+          productId = candidateId;
+          break;
+        }
+      }
 
-    if (!error && productId) {
       const inventoryResult = await supabase.rpc(
         'set_product_variant_inventory',
         {
@@ -679,30 +710,33 @@ export function AdminDashboardPage() {
           p_colors: colors,
         },
       );
-      error = inventoryResult.error;
-      if (!error && !hasSizeInventory) {
-        const inventoryResult = await supabase.rpc('set_product_stock', {
+      if (inventoryResult.error) throw inventoryResult.error;
+
+      if (!hasSizeInventory) {
+        const stockResult = await supabase.rpc('set_product_stock', {
           p_product_id: productId,
           p_stock_quantity: stockQuantity,
         });
-        error = inventoryResult.error;
+        if (stockResult.error) throw stockResult.error;
       }
-    }
 
-    setSavingProduct(false);
-
-    if (error) {
-      console.error(error);
-      alert(`Could not save product: ${error.message}`);
+      setShowProductModal(false);
+      setEditingProduct(null);
+      setProductForm(EMPTY_PRODUCT);
       await fetchProducts();
-      return;
+    } catch (error) {
+      console.error('Could not save product:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      setProductSaveError(
+        message.includes('products_pkey')
+          ? 'A product with that ID already exists. Please retry; a unique ID will be generated automatically.'
+          : `Could not save product: ${message}`,
+      );
+      await fetchProducts();
+    } finally {
+      savingProductRef.current = false;
+      setSavingProduct(false);
     }
-
-    setShowProductModal(false);
-    setEditingProduct(null);
-    setProductForm(EMPTY_PRODUCT);
-
-    await fetchProducts();
   };
 
   /*
@@ -1788,7 +1822,9 @@ export function AdminDashboardPage() {
           setForm={setProductForm}
           editing={!!editingProduct}
           saving={savingProduct}
+          saveError={productSaveError}
           onClose={() => {
+            if (savingProductRef.current) return;
             setShowProductModal(false);
             setEditingProduct(null);
           }}
@@ -2093,6 +2129,7 @@ function ProductModal({
   setForm,
   editing,
   saving,
+  saveError,
   onClose,
   onSave,
 }: {
@@ -2100,6 +2137,7 @@ function ProductModal({
   setForm: React.Dispatch<React.SetStateAction<ProductForm>>;
   editing: boolean;
   saving: boolean;
+  saveError: string;
   onClose: () => void;
   onSave: () => void;
 }) {
@@ -2152,11 +2190,19 @@ function ProductModal({
           <button
             onClick={onClose}
             aria-label="Close"
+            disabled={saving}
+            className="disabled:opacity-40"
           >
             <X className="h-5 w-5 text-ink-500" />
           </button>
 
         </div>
+
+        {saveError && (
+          <p role="alert" className="mt-5 border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {saveError}
+          </p>
+        )}
 
         <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2">
 
@@ -2585,6 +2631,7 @@ function ProductModal({
 
           <button
             onClick={onClose}
+            disabled={saving}
             className="btn-ghost flex-1"
           >
             Cancel
