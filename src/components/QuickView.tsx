@@ -5,7 +5,7 @@ import { Link } from '@/router';
 import { formatPrice } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 import { navigate } from '@/router';
-import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
+import { getStockStatus, getStockStatusClasses, getVariantStock, hasSizeVariants } from '@/lib/inventory';
 
 export function QuickView({
   product,
@@ -22,7 +22,7 @@ export function QuickView({
 
   useEffect(() => {
     if (product) {
-      setSize(product.sizes[1] ?? product.sizes[0]);
+      setSize('');
       setColor(product.colors[0]?.name ?? '');
       setAdded(false);
       setCartMessage('');
@@ -40,6 +40,10 @@ export function QuickView({
   if (!product) return null;
 
   const addToCart = () => {
+    if (hasSizeVariants(product) && !size) {
+      setCartMessage('Select an available size before adding this item.');
+      return;
+    }
     if (!addItem(product, size, color, 1)) {
       setCartMessage('This product is no longer available in the requested quantity.');
       return;
@@ -48,8 +52,11 @@ export function QuickView({
     setAdded(true);
     setTimeout(onClose, 900);
   };
-  const stockStatus = getStockStatus(product.stockQuantity);
-  const outOfStock = stockStatus === 'Out of Stock';
+  const selectedStock = getVariantStock(product, size, color);
+  const stockStatus = getStockStatus(selectedStock);
+  const outOfStock = hasSizeVariants(product)
+    ? !size || selectedStock < 1
+    : selectedStock < 1;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center">
@@ -86,8 +93,8 @@ export function QuickView({
               {formatPrice(product.price)}
             </p>
             <p className={`mt-2 text-xs font-semibold uppercase tracking-wider ${getStockStatusClasses(stockStatus)}`}>
-              {stockStatus}
-              {!outOfStock && ` · ${product.stockQuantity} available`}
+              {hasSizeVariants(product) && !size ? 'Select a size' : stockStatus}
+              {!outOfStock && ` · ${selectedStock} available`}
             </p>
             <p className="mt-4 text-sm leading-relaxed text-ink-600">
               {product.description}
@@ -123,19 +130,26 @@ export function QuickView({
                 Size
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {product.sizes.map((s) => (
+                {product.sizes.map((s) => {
+                  const available = getVariantStock(product, s, color);
+                  return (
                   <button
                     key={s}
                     onClick={() => setSize(s)}
-                    className={`min-w-10 border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    disabled={available < 1}
+                    className={`min-w-10 border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       size === s
                         ? 'border-ink-900 bg-ink-900 text-ink-50'
                         : 'border-ink-200 text-ink-700 hover:border-ink-400'
                     }`}
                   >
-                    {s}
+                    {s}{available < 1 ? ' · Unavailable' : ''}
                   </button>
-                ))}
+                  );
+                })}
+                {hasSizeVariants(product) && product.sizes.length === 0 && (
+                  <p className="text-xs text-ink-500">Size inventory is not configured.</p>
+                )}
               </div>
             </div>
 
@@ -146,7 +160,7 @@ export function QuickView({
                 className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {outOfStock ? (
-                  'Out of Stock'
+                  hasSizeVariants(product) && !size ? 'Select a Size' : 'Out of Stock'
                 ) : added ? (
                   <>
                     <Check className="h-4 w-4" /> Added

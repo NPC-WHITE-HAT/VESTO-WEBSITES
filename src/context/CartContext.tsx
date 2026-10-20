@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { getVariantStock, hasSizeVariants, type InventorySnapshot } from '@/lib/inventory';
 import type { CartItem, Product } from '@/types';
 
 interface CartContextValue {
@@ -7,7 +8,7 @@ interface CartContextValue {
   subtotal: number;
   addItem: (product: Product, size: string, color: string, qty?: number) => boolean;
   updateQty: (index: number, qty: number) => void;
-  updateStock: (productId: string, stockQuantity: number) => void;
+  updateStock: (inventory: InventorySnapshot) => void;
   removeItem: (index: number) => void;
   clear: () => void;
 }
@@ -35,23 +36,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items]);
 
   const addItem: CartContextValue['addItem'] = (product, size, color, qty = 1) => {
-    const productQuantity = items
-      .filter((item) => item.product.id === product.id)
+    if (hasSizeVariants(product) && !size) return false;
+    const variantQuantity = items
+      .filter((item) =>
+        item.product.id === product.id &&
+        (!hasSizeVariants(product) || (item.size === size && item.color === color)),
+      )
       .reduce((total, item) => total + item.quantity, 0);
-    const stockQuantity = product.stockQuantity ?? 0;
+    const stockQuantity = getVariantStock(product, size, color);
     if (
       !Number.isInteger(qty) ||
       qty < 1 ||
-      productQuantity + qty > stockQuantity
+      variantQuantity + qty > stockQuantity
     ) {
       return false;
     }
 
     setItems((prev) => {
-      const currentProductQuantity = prev
-        .filter((item) => item.product.id === product.id)
+      const currentVariantQuantity = prev
+        .filter((item) =>
+          item.product.id === product.id &&
+          (!hasSizeVariants(product) || (item.size === size && item.color === color)),
+        )
         .reduce((total, item) => total + item.quantity, 0);
-      if (currentProductQuantity + qty > stockQuantity) return prev;
+      if (currentVariantQuantity + qty > stockQuantity) return prev;
 
       const idx = prev.findIndex(
         (i) => i.product.id === product.id && i.size === size && i.color === color,
@@ -74,12 +82,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (!item) return prev;
       const otherQuantity = prev
         .filter((current, currentIndex) =>
-          current.product.id === item.product.id && currentIndex !== index,
+          current.product.id === item.product.id &&
+          (!hasSizeVariants(item.product) ||
+            (current.size === item.size && current.color === item.color)) &&
+          currentIndex !== index,
         )
         .reduce((total, current) => total + current.quantity, 0);
       if (
         qty > item.quantity &&
-        qty + otherQuantity > (item.product.stockQuantity ?? 0)
+        qty + otherQuantity > getVariantStock(item.product, item.size, item.color)
       ) {
         return prev;
       }
@@ -89,22 +100,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const updateStock: CartContextValue['updateStock'] = (productId, stockQuantity) => {
+  const updateStock: CartContextValue['updateStock'] = (inventory) => {
     setItems((prev) => {
-      if (
-        !prev.some(
-          (item) =>
-            item.product.id === productId &&
-            item.product.stockQuantity !== stockQuantity,
-        )
-      ) {
-        return prev;
-      }
-      return prev.map((item) =>
-        item.product.id === productId
-          ? { ...item, product: { ...item.product, stockQuantity } }
-          : item,
-      );
+      return prev.map((item) => {
+        const productInventory = inventory.products[item.product.id];
+        if (!productInventory) return item;
+        return {
+          ...item,
+          size: productInventory.sizeRequired ? item.size : '',
+          product: {
+            ...item.product,
+            stockQuantity: productInventory.stockQuantity,
+            sizes: productInventory.sizes,
+            sizeRequired: productInventory.sizeRequired,
+            variantInventory: productInventory.variants,
+          },
+        };
+      });
     });
   };
 

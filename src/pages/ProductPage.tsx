@@ -5,7 +5,7 @@ import { useCart } from '@/context/CartContext';
 import { Link, navigate } from '@/router';
 import { ProductCard } from '@/components/ProductCard';
 import { getProducts } from '@/lib/products';
-import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
+import { getStockStatus, getStockStatusClasses, getVariantStock, hasSizeVariants } from '@/lib/inventory';
 import type { Product } from '@/types';
 
 export function ProductPage({
@@ -19,17 +19,21 @@ export function ProductPage({
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { addItem, items: cartItems } = useCart();
-  const [size, setSize] = useState(product?.sizes[1] ?? product?.sizes[0] ?? '');
+  const [size, setSize] = useState('');
   const [color, setColor] = useState(product?.colors[0]?.name ?? '');
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
   const cartProductQuantity = cartItems
-    .filter((item) => item.product.id === id)
+    .filter((item) =>
+      item.product.id === id &&
+      (!product || !hasSizeVariants(product) || (item.size === size && item.color === color)),
+    )
     .reduce((total, item) => total + item.quantity, 0);
+  const selectedStock = product ? getVariantStock(product, size, color) : 0;
   const remainingStock = Math.max(
     0,
-    (product?.stockQuantity ?? 0) - cartProductQuantity,
+    selectedStock - cartProductQuantity,
   );
 
   useEffect(() => {
@@ -64,7 +68,7 @@ export function ProductPage({
 
   useEffect(() => {
     if (product) {
-      setSize(product.sizes[1] ?? product.sizes[0] ?? '');
+      setSize('');
       setColor(product.colors[0]?.name ?? '');
       setQty(1);
       setCartMessage('');
@@ -114,8 +118,9 @@ export function ProductPage({
   const related = products
     .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
-  const stockStatus = getStockStatus(product.stockQuantity);
-  const outOfStock = remainingStock < 1;
+  const stockStatus = getStockStatus(selectedStock);
+  const sizeMissing = hasSizeVariants(product) && !size;
+  const outOfStock = sizeMissing || remainingStock < 1;
 
   return (
     <div className="pt-16 md:pt-20">
@@ -152,10 +157,10 @@ export function ProductPage({
             {formatPrice(product.price)}
           </p>
           <p className={`mt-2 text-xs font-semibold uppercase tracking-wider ${getStockStatusClasses(stockStatus)}`}>
-            {stockStatus}
-            {!outOfStock && ` · ${product.stockQuantity} available`}
+            {sizeMissing ? 'Select a size' : stockStatus}
+            {!sizeMissing && ` · ${selectedStock} available`}
           </p>
-          {outOfStock && stockStatus !== 'Out of Stock' && (
+          {outOfStock && !sizeMissing && (
             <p className="mt-1 text-xs text-ink-500">
               All currently available units are already in your cart.
             </p>
@@ -199,19 +204,34 @@ export function ProductPage({
               Size: <span className="text-ink-800">{size}</span>
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {product.sizes.map((s) => (
+              {product.sizes.map((s) => {
+                const available = getVariantStock(product, s, color);
+                return (
                 <button
                   key={s}
                   onClick={() => setSize(s)}
-                  className={`min-w-11 border px-3.5 py-2 text-xs font-semibold transition-colors ${
+                  disabled={available < 1}
+                  title={available < 1 ? 'Unavailable' : `${available} available`}
+                  className={`min-w-11 border px-3.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                     size === s
                       ? 'border-ink-900 bg-ink-900 text-ink-50'
                       : 'border-ink-200 text-ink-700 hover:border-ink-400'
                   }`}
                 >
-                  {s}
+                  {s}{available < 1 ? ' · Unavailable' : ''}
                 </button>
-              ))}
+                );
+              })}
+              {hasSizeVariants(product) && product.sizes.length === 0 && (
+                <p className="text-xs text-ink-500">
+                  Size inventory has not been configured for this product yet.
+                </p>
+              )}
+              {size && (
+                <p className="mt-2 w-full text-xs font-medium text-ink-700">
+                  {selectedStock > 0 ? `${selectedStock} available` : 'Unavailable'}
+                </p>
+              )}
             </div>
           </div>
 
@@ -248,7 +268,7 @@ export function ProductPage({
                   <Check className="h-4 w-4" /> Added to Cart
                 </>
               ) : (
-                outOfStock ? 'Out of Stock' : 'Add to Cart'
+                sizeMissing ? 'Select a Size' : outOfStock ? 'Out of Stock' : 'Add to Cart'
               )}
             </button>
             <button
@@ -258,7 +278,7 @@ export function ProductPage({
               disabled={outOfStock}
               className="btn-outline disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {outOfStock ? 'Out of Stock' : 'Proceed to Checkout'}
+              {sizeMissing ? 'Select a Size' : outOfStock ? 'Out of Stock' : 'Proceed to Checkout'}
             </button>
             {cartMessage && <p role="alert" className="text-sm text-red-700">{cartMessage}</p>}
             <a

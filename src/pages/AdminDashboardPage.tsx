@@ -33,7 +33,15 @@ import {
   getOffers,
   updateOffer,
 } from '@/lib/offers';
-import type { Offer, ProductColor } from '@/types';
+import type { Offer, ProductColor, ProductVariantInventory } from '@/types';
+
+const CLOTHING_SIZES = ['S', 'M', 'L', 'XL', 'XXL'] as const;
+
+interface SizeInventoryFormRow {
+  size: string;
+  enabled: boolean;
+  quantities: Record<string, string>;
+}
 
 interface OrderRow {
   id: string;
@@ -74,6 +82,7 @@ interface ProductRow {
   sizes: string[];
   fabric: string;
   stock_quantity: number;
+  variant_inventory: ProductVariantInventory[];
   created_at?: string;
 }
 
@@ -86,7 +95,7 @@ interface ProductForm {
   image: string;
   description: string;
   colors: ProductColor[];
-  sizes: string;
+  sizeInventory: SizeInventoryFormRow[];
   fabric: string;
   stockQuantity: string;
 }
@@ -118,7 +127,11 @@ const EMPTY_PRODUCT: ProductForm = {
   image: '',
   description: '',
   colors: [{ name: 'Black', hex: '#1a1916' }],
-  sizes: 'S, M, L, XL, XXL',
+  sizeInventory: CLOTHING_SIZES.map((size) => ({
+    size,
+    enabled: true,
+    quantities: { Black: '0' },
+  })),
   fabric: '',
   stockQuantity: '0',
 };
@@ -145,6 +158,41 @@ function StockStatusLabel({ quantity }: { quantity: number }) {
       {status} · {quantity}
     </span>
   );
+}
+
+function displayedProductStock(product: ProductRow): number {
+  if (product.sizes.length === 0) return Number(product.stock_quantity ?? 0);
+  return product.variant_inventory
+    .filter((variant) => variant.enabled)
+    .reduce((total, variant) => total + variant.availableQuantity, 0);
+}
+
+function sizeStockSummary(product: ProductRow): string {
+  const sizeOrder = new Map<string, number>(
+    CLOTHING_SIZES.map((size, index) => [size, index]),
+  );
+  const sizes = [...new Set([
+    ...product.sizes,
+    ...product.variant_inventory.map((variant) => variant.size),
+  ])].sort((a, b) => (sizeOrder.get(a) ?? 99) - (sizeOrder.get(b) ?? 99));
+  if (sizes.length === 0) return 'No size variants';
+  return sizes
+    .map((size) => {
+      const rows = product.variant_inventory.filter((variant) => variant.size === size);
+      if (rows.length === 0) return `${size}: not allocated`;
+      const quantity = rows.reduce(
+        (total, variant) =>
+          total + (variant.enabled ? variant.availableQuantity : 0),
+        0,
+      );
+      const colors = rows
+        .map((variant) =>
+          `${variant.color || 'Standard'} ${variant.availableQuantity}${variant.enabled ? '' : ' (disabled)'}`,
+        )
+        .join(', ');
+      return `${size}: ${quantity} (${colors})`;
+    })
+    .join(' · ');
 }
 
 function normalizeWhatsAppPhone(phone: string): string | null {
@@ -256,15 +304,43 @@ export function AdminDashboardPage() {
   const fetchProducts = useCallback(async () => {
     setProductsLoading(true);
 
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [{ data, error }, { data: inventory, error: inventoryError }] =
+      await Promise.all([
+        supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('product_variant_inventory')
+          .select('product_id, size, color, available_quantity, enabled'),
+      ]);
 
-    if (!error && data) {
-      setProducts(data as ProductRow[]);
+    if (!error && !inventoryError && data) {
+      const inventoryByProduct = new Map<string, ProductVariantInventory[]>();
+      for (const row of inventory ?? []) {
+        const productId = String(row.product_id);
+        const rows = inventoryByProduct.get(productId) ?? [];
+        rows.push({
+          size: String(row.size),
+          color: String(row.color ?? ''),
+          availableQuantity: Number(row.available_quantity ?? 0),
+          enabled: Boolean(row.enabled),
+        });
+        inventoryByProduct.set(productId, rows);
+      }
+      setProducts(data.map((row) => ({
+        ...row,
+        sizes: Array.isArray(row.sizes)
+          ? row.sizes
+          : Array.isArray(row.size)
+            ? row.size
+            : [],
+        variant_inventory: inventoryByProduct.get(String(row.id)) ?? [],
+      })) as ProductRow[]);
     } else if (error) {
       console.error('Failed to fetch products:', error);
+    } else if (inventoryError) {
+      console.error('Failed to fetch product variant inventory:', inventoryError);
     }
 
     setProductsLoading(false);
@@ -454,7 +530,20 @@ export function AdminDashboardPage() {
       image: product.image,
       description: product.description,
       colors: product.colors ?? [],
-      sizes: product.sizes.join(', '),
+      sizeInventory: CLOTHING_SIZES.map((size) => {
+        const rows = product.variant_inventory.filter((row) => row.size === size);
+        const colors = product.colors?.length ? product.colors : [{ name: '', hex: '' }];
+        return {
+          size,
+          enabled: rows.length > 0
+            ? rows.some((row) => row.enabled)
+            : product.sizes.includes(size),
+          quantities: Object.fromEntries(colors.map((color) => {
+            const current = rows.find((row) => row.color === color.name);
+            return [color.name, String(current?.availableQuantity ?? 0)];
+          })),
+        };
+      }),
       fabric: product.fabric,
       stockQuantity: String(product.stock_quantity ?? 0),
     });
@@ -482,17 +571,6 @@ export function AdminDashboardPage() {
       alert('Stock quantity must be a non-negative whole number.');
       return;
     }
-    const stockQuantity = Number(productForm.stockQuantity);
-    if (!Number.isSafeInteger(stockQuantity) || stockQuantity > 2147483647) {
-      alert('Stock quantity is outside the supported range.');
-      return;
-    }
-
-    if (productForm.colors.length === 0) {
-      alert('Please add at least one product color.');
-      return;
-    }
-
     const invalidColor = productForm.colors.find(
       (color) =>
         !color.name.trim() || !/^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(color.hex),
@@ -507,11 +585,49 @@ export function AdminDashboardPage() {
       name: name.trim(),
       hex,
     }));
+    if (new Set(colors.map((color) => color.name.toLowerCase())).size !== colors.length) {
+      alert('Each product color must have a unique name.');
+      return;
+    }
 
-    const sizes = productForm.sizes
-      .split(',')
-      .map((size) => size.trim())
-      .filter(Boolean);
+    const sizes = productForm.sizeInventory
+      .filter((row) => row.enabled)
+      .map((row) => row.size);
+    const hasSizeInventory = sizes.length > 0;
+    const inventoryColors = colors.length ? colors : [{ name: '', hex: '' }];
+    for (const row of productForm.sizeInventory) {
+      for (const color of inventoryColors) {
+        const rawQuantity = row.quantities[color.name] ?? '0';
+        const quantity = Number(rawQuantity);
+        if (!/^\d+$/.test(rawQuantity) || !Number.isSafeInteger(quantity) ||
+          quantity > 2147483647) {
+          alert(`${row.size} ${color.name} stock must be a non-negative whole number.`);
+          return;
+        }
+      }
+    }
+    const sizeVariants = productForm.sizeInventory.flatMap((row) =>
+      inventoryColors.map((color) => ({
+        size: row.size,
+        color: color.name,
+        enabled: row.enabled,
+        available_quantity: Number(row.quantities[color.name] ?? '0'),
+      })),
+    );
+    const stockQuantity = Number(productForm.stockQuantity);
+    const enabledStockTotal = sizeVariants
+      .filter((variant) => variant.enabled)
+      .reduce((total, variant) => total + variant.available_quantity, 0);
+    if (enabledStockTotal > 2147483647) {
+      alert('The combined size/color stock cannot exceed the supported product stock limit.');
+      return;
+    }
+    if (!hasSizeInventory &&
+      (!/^\d+$/.test(productForm.stockQuantity) ||
+        !Number.isSafeInteger(stockQuantity) || stockQuantity > 2147483647)) {
+      alert('Stock quantity must be a non-negative whole number within the supported range.');
+      return;
+    }
 
     setSavingProduct(true);
 
@@ -522,12 +638,10 @@ export function AdminDashboardPage() {
       is_new: productForm.is_new,
       image: productForm.image.trim(),
       description: productForm.description.trim(),
-      colors,
-      sizes,
       fabric: productForm.fabric.trim(),
     };
 
-    let error;
+    let error: { message: string } | null = null;
 
     let productId = editingProduct?.id;
     if (editingProduct) {
@@ -549,17 +663,30 @@ export function AdminDashboardPage() {
       const result = await supabase.from('products').insert({
         id: newId,
         ...productData,
+        colors,
+        sizes: [],
       });
 
       error = result.error;
     }
 
     if (!error && productId) {
-      const stockResult = await supabase.rpc('set_product_stock', {
-        p_product_id: productId,
-        p_stock_quantity: stockQuantity,
-      });
-      error = stockResult.error;
+      const inventoryResult = await supabase.rpc(
+        'set_product_variant_inventory',
+        {
+          p_product_id: productId,
+          p_variants: sizeVariants,
+          p_colors: colors,
+        },
+      );
+      error = inventoryResult.error;
+      if (!error && !hasSizeInventory) {
+        const inventoryResult = await supabase.rpc('set_product_stock', {
+          p_product_id: productId,
+          p_stock_quantity: stockQuantity,
+        });
+        error = inventoryResult.error;
+      }
     }
 
     setSavingProduct(false);
@@ -1332,7 +1459,12 @@ export function AdminDashboardPage() {
                         </td>
 
                         <td className="py-4 pr-4">
-                          <StockStatusLabel quantity={Number(product.stock_quantity ?? 0)} />
+                          <StockStatusLabel quantity={displayedProductStock(product)} />
+                          {(product.sizes.length > 0 || product.variant_inventory.length > 0) && (
+                            <p className="mt-1 max-w-xs text-[10px] leading-relaxed text-ink-500">
+                              {sizeStockSummary(product)}
+                            </p>
+                          )}
                         </td>
 
                         <td className="py-4 pr-4">
@@ -1420,8 +1552,13 @@ export function AdminDashboardPage() {
                         {formatPrice(Number(product.price))}
                       </p>
                       <div className="mt-1">
-                        <StockStatusLabel quantity={Number(product.stock_quantity ?? 0)} />
+                        <StockStatusLabel quantity={displayedProductStock(product)} />
                       </div>
+                      {(product.sizes.length > 0 || product.variant_inventory.length > 0) && (
+                        <p className="mt-1 text-[10px] leading-relaxed text-ink-500">
+                          {sizeStockSummary(product)}
+                        </p>
+                      )}
                       <p
                         className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${
                           product.is_new ? 'text-green-700' : 'text-ink-400'
@@ -2095,34 +2232,109 @@ function ProductModal({
 
           </div>
 
-          {/* STOCK QUANTITY */}
+          {/* SIZE INVENTORY */}
 
-          <div>
-
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
-              Available Stock
-            </label>
-
-            <input
-              type="number"
-              min="0"
-              max="2147483647"
-              step="1"
-              inputMode="numeric"
-              value={form.stockQuantity}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  stockQuantity: e.target.value,
-                })
-              }
-              placeholder="0"
-              className="input-vesto mt-1.5"
-            />
-            <p className="mt-1 text-xs text-ink-500">
-              Enter a verified whole-number count. New products start at zero.
+          <div className="md:col-span-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+              Size-wise inventory
             </p>
-
+            <p className="mt-1 text-xs leading-relaxed text-ink-500">
+              Enable each available size and enter verified quantities available for each color,
+              excluding units already reserved by orders. Existing aggregate stock is not assigned
+              to sizes automatically; resolve pending aggregate-stock reservations first.
+            </p>
+            <div className="mt-3 space-y-3">
+              {form.sizeInventory.map((row, rowIndex) => (
+                <div key={row.size} className="border border-ink-200 p-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-ink-800">
+                    <input
+                      type="checkbox"
+                      checked={row.enabled}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          sizeInventory: current.sizeInventory.map((sizeRow, index) =>
+                            index === rowIndex
+                              ? { ...sizeRow, enabled: event.target.checked }
+                              : sizeRow,
+                          ),
+                        }))
+                      }
+                    />
+                    Enable {row.size}
+                  </label>
+                  {row.enabled && (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {(form.colors.length ? form.colors : [{ name: '', hex: '' }]).map((color) => (
+                        <label
+                          key={`${row.size}-${color.name || 'standard'}`}
+                          className="text-[10px] font-semibold uppercase tracking-widest text-ink-500"
+                        >
+                          {color.name || 'Standard'} quantity
+                          <input
+                            type="number"
+                            min="0"
+                            max="2147483647"
+                            step="1"
+                            inputMode="numeric"
+                            value={row.quantities[color.name] ?? '0'}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                sizeInventory: current.sizeInventory.map((sizeRow, index) =>
+                                  index === rowIndex
+                                    ? {
+                                        ...sizeRow,
+                                        quantities: {
+                                          ...sizeRow.quantities,
+                                          [color.name]: event.target.value,
+                                        },
+                                      }
+                                    : sizeRow,
+                                ),
+                              }))
+                            }
+                            className="input-vesto mt-1.5"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {form.sizeInventory.some((row) => row.enabled) ? (
+              <p className="mt-3 text-xs font-semibold text-ink-700">
+                Total available stock:{' '}
+                {form.sizeInventory
+                  .filter((row) => row.enabled)
+                  .reduce(
+                    (total, row) =>
+                      total +
+                      Object.values(row.quantities).reduce(
+                        (rowTotal, quantity) => rowTotal + (Number(quantity) || 0),
+                        0,
+                      ),
+                    0,
+                  )}
+              </p>
+            ) : (
+              <label className="mt-4 block text-[11px] font-semibold uppercase tracking-widest text-ink-500">
+                Aggregate stock (products without size options)
+                <input
+                  type="number"
+                  min="0"
+                  max="2147483647"
+                  step="1"
+                  inputMode="numeric"
+                  value={form.stockQuantity}
+                  onChange={(event) =>
+                    setForm({ ...form, stockQuantity: event.target.value })
+                  }
+                  className="input-vesto mt-1.5"
+                />
+              </label>
+            )}
           </div>
 
           {/* IMAGE */}
@@ -2218,28 +2430,6 @@ function ProductModal({
                 })
               }
               placeholder="240 GSM Combed Cotton"
-              className="input-vesto mt-1.5"
-            />
-
-          </div>
-
-          {/* SIZES */}
-
-          <div>
-
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">
-              Sizes
-            </label>
-
-            <input
-              value={form.sizes}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  sizes: e.target.value,
-                })
-              }
-              placeholder="S, M, L, XL, XXL"
               className="input-vesto mt-1.5"
             />
 

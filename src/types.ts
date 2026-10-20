@@ -5,6 +5,13 @@ export interface ProductColor {
   hex: string;
 }
 
+export interface ProductVariantInventory {
+  size: string;
+  color: string;
+  availableQuantity: number;
+  enabled: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -15,6 +22,8 @@ export interface Product {
   description: string;
   colors: ProductColor[];
   sizes: string[];
+  sizeRequired?: boolean;
+  variantInventory?: ProductVariantInventory[];
   fabric: string;
   stockQuantity?: number;
 }

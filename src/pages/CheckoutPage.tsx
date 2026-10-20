@@ -15,7 +15,7 @@ import { formatPrice, WHATSAPP_NUMBER } from '@/data/products';
 import { Link, navigate } from '@/router';
 import { supabase } from '@/lib/supabase';
 import { getUpiConfig, buildUpiDeepLink, buildUpiQrPayload, type UpiConfig } from '@/lib/upi';
-import { getStockQuantities } from '@/lib/inventory';
+import { getInventorySnapshot, variantStockKey } from '@/lib/inventory';
 
 type Step = 'details' | 'payment' | 'reference' | 'success';
 const CHECKOUT_REQUEST_KEY = 'vesto-checkout-request-key';
@@ -54,31 +54,28 @@ export function CheckoutPage() {
   });
 
   const validateCurrentStock = async () => {
-    const currentStock = await getStockQuantities(
-      items.map((item) => item.product.id),
-    );
-    for (const [productId, quantity] of Object.entries(currentStock)) {
-      updateStock(productId, quantity);
+    const inventory = await getInventorySnapshot(items.map((item) => item.product.id));
+    updateStock(inventory);
+    const totals = new Map<string, { quantity: number; available: number; productName: string }>();
+    for (const item of items) {
+      const currentProduct = inventory.products[item.product.id];
+      const key = currentProduct?.sizeRequired
+        ? variantStockKey(item.product.id, item.size, item.color)
+        : variantStockKey(item.product.id, '', '');
+      const current = totals.get(key) ?? {
+        quantity: 0,
+        available: currentProduct?.sizeRequired
+          ? inventory.variants[key] ?? 0
+          : currentProduct?.stockQuantity ?? 0,
+        productName: item.product.name,
+      };
+      current.quantity += item.quantity;
+      totals.set(key, current);
     }
-
-    const quantityByProduct = items.reduce<Record<string, number>>(
-      (quantities, item) => {
-        quantities[item.product.id] =
-          (quantities[item.product.id] ?? 0) + item.quantity;
-        return quantities;
-      },
-      {},
-    );
-    const unavailable = Object.entries(quantityByProduct).find(
-      ([productId, quantity]) => quantity > (currentStock[productId] ?? 0),
-    );
-
+    const unavailable = [...totals.values()].find((entry) => entry.quantity > entry.available);
     if (unavailable) {
-      const productName =
-        items.find((item) => item.product.id === unavailable[0])?.product.name ??
-        'An item in your cart';
       throw new Error(
-        `${productName} has only ${currentStock[unavailable[0]] ?? 0} unit(s) available. Return to your cart and adjust the quantity before continuing.`,
+        `${unavailable.productName} has only ${unavailable.available} unit(s) available for the selected variant. Return to your cart and adjust the quantity before continuing.`,
       );
     }
   };
@@ -203,6 +200,17 @@ export function CheckoutPage() {
     setPaymentStockIssue(false);
 
     try {
+      try {
+        await validateCurrentStock();
+      } catch (error) {
+        setPaymentStockIssue(true);
+        setSubmitError(
+          error instanceof Error
+            ? `${error.message} Do not pay again; contact VESTO if you have already paid.`
+            : 'Could not verify current stock. Do not pay again; contact VESTO if you have already paid.',
+        );
+        return;
+      }
       const orderItems = items.map((i) => ({
         productId: i.product.id,
         name: i.product.name,
@@ -621,7 +629,9 @@ export function CheckoutPage() {
                         {i.product.name}
                       </p>
                       <p className="text-xs text-ink-500">
-                        {i.size} · {i.color} · Qty {i.quantity}
+                        {[i.size && `Size ${i.size}`, i.color, `Qty ${i.quantity}`]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </p>
                     </div>
                     <p className="self-center text-sm font-semibold text-ink-900">

@@ -1,9 +1,7 @@
-import { Eye, Plus, Check } from 'lucide-react';
-import { useState } from 'react';
+import { Eye, Plus } from 'lucide-react';
 import type { Product } from '@/types';
-import { Link } from '@/router';
+import { Link, navigate } from '@/router';
 import { formatPrice } from '@/data/products';
-import { useCart } from '@/context/CartContext';
 import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
 
 export function ProductCard({
@@ -15,24 +13,14 @@ export function ProductCard({
   onQuickView?: (p: Product) => void;
   showAddButton?: boolean;
 }) {
-  const { addItem } = useCart();
-  const [added, setAdded] = useState(false);
   const stockStatus = getStockStatus(product.stockQuantity);
   const outOfStock = stockStatus === 'Out of Stock';
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (outOfStock) return;
-    const addedToCart = addItem(
-      product,
-      product.sizes[1] ?? product.sizes[0],
-      product.colors[0]?.name ?? '',
-      1,
-    );
-    if (!addedToCart) return;
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1400);
+    if (onQuickView) onQuickView(product);
+    else navigate(`/product?id=${product.id}`);
   };
 
   return (
@@ -88,17 +76,7 @@ export function ProductCard({
             disabled={outOfStock}
             className="mt-3 inline-flex items-center justify-center gap-2 border border-ink-200 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-800 transition-all duration-300 hover:border-accent hover:text-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {outOfStock ? (
-              'Out of Stock'
-            ) : added ? (
-              <>
-                <Check className="h-3.5 w-3.5" /> Added
-              </>
-            ) : (
-              <>
-                <Plus className="h-3.5 w-3.5" /> Add to Cart
-              </>
-            )}
+            {outOfStock ? 'Out of Stock' : <><Plus className="h-3.5 w-3.5" /> Choose options</>}
           </button>
         )}
       </div>

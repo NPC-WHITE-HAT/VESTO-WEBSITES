@@ -3,7 +3,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { formatPrice } from '@/data/products';
 import { Link, navigate } from '@/router';
-import { getStockQuantities } from '@/lib/inventory';
+import { getInventorySnapshot, hasSizeVariants, variantStockKey } from '@/lib/inventory';
 
 export function CartPage() {
   const { items, subtotal, updateQty, updateStock, removeItem, count } = useCart();
@@ -21,13 +21,17 @@ export function CartPage() {
 
     const refreshStock = async () => {
       try {
-        const currentStock = await getStockQuantities(productIds);
+        const currentInventory = await getInventorySnapshot(productIds);
         if (!active) return;
+        const currentStock = { ...currentInventory.variants };
+        for (const [productId, product] of Object.entries(currentInventory.products)) {
+          if (!product.sizeRequired) {
+            currentStock[variantStockKey(productId, '', '')] = product.stockQuantity;
+          }
+        }
         setAvailableStock(currentStock);
         setStockError('');
-        for (const [productId, quantity] of Object.entries(currentStock)) {
-          updateStock(productId, quantity);
-        }
+        updateStock(currentInventory);
       } catch (error) {
         console.error('Could not refresh cart inventory:', error);
         if (active) {
@@ -48,10 +52,17 @@ export function CartPage() {
   }, [productIdsKey, updateStock]);
 
   const exceedsStock = items.some((item) => {
+    const key = hasSizeVariants(item.product)
+      ? variantStockKey(item.product.id, item.size, item.color)
+      : variantStockKey(item.product.id, '', '');
     const productQuantity = items
-      .filter((candidate) => candidate.product.id === item.product.id)
+      .filter((candidate) =>
+        candidate.product.id === item.product.id &&
+        (!hasSizeVariants(item.product) ||
+          (candidate.size === item.size && candidate.color === item.color)),
+      )
       .reduce((total, candidate) => total + candidate.quantity, 0);
-    return productQuantity > (availableStock[item.product.id] ?? 0);
+    return productQuantity > (availableStock[key] ?? 0);
   });
 
   if (items.length === 0) {
@@ -83,9 +94,16 @@ export function CartPage() {
           <div className="lg:col-span-2">
             <div className="divide-y divide-ink-200 border-y border-ink-200">
               {items.map((item, i) => {
-                const currentStock = availableStock[item.product.id] ?? 0;
+                const key = hasSizeVariants(item.product)
+                  ? variantStockKey(item.product.id, item.size, item.color)
+                  : variantStockKey(item.product.id, '', '');
+                const currentStock = availableStock[key] ?? 0;
                 const productQuantity = items
-                  .filter((candidate) => candidate.product.id === item.product.id)
+                  .filter((candidate) =>
+                    candidate.product.id === item.product.id &&
+                    (!hasSizeVariants(item.product) ||
+                      (candidate.size === item.size && candidate.color === item.color)),
+                  )
                   .reduce((total, candidate) => total + candidate.quantity, 0);
                 const hasStockIssue = productQuantity > currentStock;
                 return (
@@ -117,9 +135,13 @@ export function CartPage() {
                         >
                           {item.product.name}
                         </Link>
-                        <p className="mt-1 text-xs text-ink-500">
-                          Size {item.size} · {item.color}
-                        </p>
+                        {(item.size || item.color) && (
+                          <p className="mt-1 text-xs text-ink-500">
+                            {[item.size && `Size ${item.size}`, item.color]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        )}
                       </div>
                       <p className="text-sm font-semibold text-ink-900">
                         {formatPrice(item.product.price * item.quantity)}
