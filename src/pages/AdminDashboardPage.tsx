@@ -306,18 +306,18 @@ export function AdminDashboardPage() {
   const fetchProducts = useCallback(async () => {
     setProductsLoading(true);
 
-    const [{ data, error }, { data: inventory, error: inventoryError }] =
-      await Promise.all([
-        supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('product_variant_inventory')
-          .select('product_id, size, color, available_quantity, enabled'),
-      ]);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    if (!error && !inventoryError && data) {
+    if (!error && data) {
+      const { data: inventory, error: inventoryError } = await supabase
+        .from('product_variant_inventory')
+        .select('product_id, size, color, available_quantity, enabled');
+      if (inventoryError) {
+        console.error('Failed to fetch product variant inventory:', inventoryError);
+      }
       const inventoryByProduct = new Map<string, ProductVariantInventory[]>();
       for (const row of inventory ?? []) {
         const productId = String(row.product_id);
@@ -341,8 +341,6 @@ export function AdminDashboardPage() {
       })) as ProductRow[]);
     } else if (error) {
       console.error('Failed to fetch products:', error);
-    } else if (inventoryError) {
-      console.error('Failed to fetch product variant inventory:', inventoryError);
     }
 
     setProductsLoading(false);
@@ -698,6 +696,14 @@ export function AdminDashboardPage() {
           }
           if (inserted.error) throw inserted.error;
           productId = candidateId;
+          setEditingProduct({
+            id: candidateId,
+            ...productData,
+            colors,
+            sizes: [],
+            stock_quantity: 0,
+            variant_inventory: [],
+          });
           break;
         }
       }
