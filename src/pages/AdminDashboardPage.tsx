@@ -118,6 +118,31 @@ function colorPickerValue(hex: string): string {
     : '#000000';
 }
 
+function formatProductSaveError(error: unknown): string {
+  if (typeof error === 'string') return error.trim() || 'An unexpected error occurred.';
+  if (typeof error !== 'object' || error === null) {
+    return error instanceof Error && error.message
+      ? error.message
+      : 'An unexpected error occurred.';
+  }
+
+  const errorRecord = error as Record<string, unknown>;
+  const fields = ['message', 'code', 'details', 'hint', 'constraint'];
+  const formattedFields = fields.flatMap((field) => {
+    const value = errorRecord[field];
+    if (typeof value !== 'string' && typeof value !== 'number') return [];
+    const text = String(value).trim();
+    return text ? [`${field === 'message' ? '' : `${field}: `}${text}`] : [];
+  });
+
+  if (formattedFields.length > 0) return formattedFields.join(' | ');
+  try {
+    return JSON.stringify(error) || 'An unexpected error occurred.';
+  } catch {
+    return 'An unexpected error occurred.';
+  }
+}
+
 const EMPTY_PRODUCT: ProductForm = {
   id: '',
   name: '',
@@ -646,6 +671,7 @@ export function AdminDashboardPage() {
 
     savingProductRef.current = true;
     setSavingProduct(true);
+    let saveStage = editingProduct ? 'product update' : 'product ID lookup';
     try {
       let productId: string;
       if (editingProduct) {
@@ -670,6 +696,7 @@ export function AdminDashboardPage() {
 
         while (true) {
           const candidateId = suffix === 1 ? baseId : `${baseId}-${suffix}`;
+          saveStage = 'product ID lookup';
           const existing = await supabase
             .from('products')
             .select('id')
@@ -681,6 +708,7 @@ export function AdminDashboardPage() {
             continue;
           }
 
+          saveStage = 'product insert';
           const inserted = await supabase.from('products').insert({
             id: candidateId,
             ...productData,
@@ -708,6 +736,7 @@ export function AdminDashboardPage() {
         }
       }
 
+      saveStage = 'size/color inventory';
       const inventoryResult = await supabase.rpc(
         'set_product_variant_inventory',
         {
@@ -719,6 +748,7 @@ export function AdminDashboardPage() {
       if (inventoryResult.error) throw inventoryResult.error;
 
       if (!hasSizeInventory) {
+        saveStage = 'aggregate stock';
         const stockResult = await supabase.rpc('set_product_stock', {
           p_product_id: productId,
           p_stock_quantity: stockQuantity,
@@ -731,12 +761,11 @@ export function AdminDashboardPage() {
       setProductForm(EMPTY_PRODUCT);
       await fetchProducts();
     } catch (error) {
-      console.error('Could not save product:', error);
-      const message = error instanceof Error ? error.message : String(error);
+      if (import.meta.env.DEV) {
+        console.error(`Could not save product during ${saveStage}:`, error);
+      }
       setProductSaveError(
-        message.includes('products_pkey')
-          ? 'A product with that ID already exists. Please retry; a unique ID will be generated automatically.'
-          : `Could not save product: ${message}`,
+        `Could not save product during ${saveStage}: ${formatProductSaveError(error)}`,
       );
       await fetchProducts();
     } finally {
