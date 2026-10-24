@@ -641,13 +641,13 @@ export function AdminDashboardPage() {
         size: row.size,
         color: color.name,
         enabled: row.enabled,
-        available_quantity: Number(row.quantities[color.name] ?? '0'),
+        stock_quantity: Number(row.quantities[color.name] ?? '0'),
       })),
     );
     const stockQuantity = Number(productForm.stockQuantity);
     const enabledStockTotal = sizeVariants
       .filter((variant) => variant.enabled)
-      .reduce((total, variant) => total + variant.available_quantity, 0);
+      .reduce((total, variant) => total + variant.stock_quantity, 0);
     if (enabledStockTotal > 2147483647) {
       alert('The combined size/color stock cannot exceed the supported product stock limit.');
       return;
