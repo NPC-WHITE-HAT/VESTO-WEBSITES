@@ -338,8 +338,8 @@ export function AdminDashboardPage() {
 
     if (!error && data) {
       const { data: inventory, error: inventoryError } = await supabase
-        .from('product_variant_inventory')
-        .select('product_id, size, color, available_quantity, enabled');
+  .from('product_variant_inventory')
+  .select('product_id, size, color, stock_quantity');
       if (inventoryError) {
         console.error('Failed to fetch product variant inventory:', inventoryError);
       }
@@ -350,8 +350,8 @@ export function AdminDashboardPage() {
         rows.push({
           size: String(row.size),
           color: String(row.color ?? ''),
-          availableQuantity: Number(row.available_quantity ?? 0),
-          enabled: Boolean(row.enabled),
+          availableQuantity: Number(row.stock_quantity ?? 0),
+enabled: true,
         });
         inventoryByProduct.set(productId, rows);
       }
