@@ -26,7 +26,11 @@ import { navigate } from '@/router';
 import { formatPrice } from '@/data/products';
 import { getUpiConfig, updateUpiConfig } from '@/lib/upi';
 import { uploadImage as uploadCloudinaryImage } from '@/lib/cloudinary';
-import { getStockStatus, getStockStatusClasses } from '@/lib/inventory';
+import {
+  getInventorySnapshot,
+  getStockStatus,
+  getStockStatusClasses,
+} from '@/lib/inventory';
 import {
   createOffer,
   deleteOffer,
@@ -82,6 +86,7 @@ interface ProductRow {
   sizes: string[];
   fabric: string;
   stock_quantity: number;
+  inventory_stock_quantity?: number;
   variant_inventory: ProductVariantInventory[];
   created_at?: string;
 }
@@ -186,10 +191,7 @@ function StockStatusLabel({ quantity }: { quantity: number }) {
 }
 
 function displayedProductStock(product: ProductRow): number {
-  if (product.sizes.length === 0) return Number(product.stock_quantity ?? 0);
-  return product.variant_inventory
-    .filter((variant) => variant.enabled)
-    .reduce((total, variant) => total + variant.availableQuantity, 0);
+  return product.inventory_stock_quantity ?? Number(product.stock_quantity ?? 0);
 }
 
 function sizeStockSummary(product: ProductRow): string {
@@ -263,6 +265,7 @@ export function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [ordersError, setOrdersError] = useState('');
   const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState('');
   const [offersLoading, setOffersLoading] = useState(true);
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -330,45 +333,43 @@ export function AdminDashboardPage() {
 
   const fetchProducts = useCallback(async () => {
     setProductsLoading(true);
+    setProductsError('');
 
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      const { data: inventory, error: inventoryError } = await supabase
-  .from('product_variant_inventory')
-  .select('product_id, size, color, stock_quantity');
-      if (inventoryError) {
-        console.error('Failed to fetch product variant inventory:', inventoryError);
-      }
-      const inventoryByProduct = new Map<string, ProductVariantInventory[]>();
-      for (const row of inventory ?? []) {
-        const productId = String(row.product_id);
-        const rows = inventoryByProduct.get(productId) ?? [];
-        rows.push({
-          size: String(row.size),
-          color: String(row.color ?? ''),
-          availableQuantity: Number(row.stock_quantity ?? 0),
-enabled: true,
-        });
-        inventoryByProduct.set(productId, rows);
-      }
-      setProducts(data.map((row) => ({
-        ...row,
-        sizes: Array.isArray(row.sizes)
+      if (error) throw error;
+
+      const inventory = await getInventorySnapshot(
+        (data ?? []).map((row) => String(row.id)),
+      );
+      setProducts((data ?? []).map((row) => {
+        const productId = String(row.id);
+        const currentInventory = inventory.products[productId];
+        const sizes = Array.isArray(row.sizes)
           ? row.sizes
           : Array.isArray(row.size)
             ? row.size
-            : [],
-        variant_inventory: inventoryByProduct.get(String(row.id)) ?? [],
-      })) as ProductRow[]);
-    } else if (error) {
-      console.error('Failed to fetch products:', error);
-    }
+            : [];
+        const sizeRequired = currentInventory?.sizeRequired ?? sizes.length > 0;
 
-    setProductsLoading(false);
+        return {
+          ...row,
+          sizes,
+          inventory_stock_quantity: currentInventory?.stockQuantity ??
+            (sizeRequired ? 0 : Number(row.stock_quantity ?? 0)),
+          variant_inventory: currentInventory?.variants ?? [],
+        };
+      }) as ProductRow[]);
+    } catch (error) {
+      console.error('Failed to fetch products and inventory:', error);
+      setProductsError('Could not load products and inventory. Please refresh and try again.');
+    } finally {
+      setProductsLoading(false);
+    }
   }, []);
 
   const fetchOffers = useCallback(async () => {
@@ -1442,6 +1443,10 @@ enabled: true,
               <div className="flex justify-center py-20">
                 <Loader2 className="h-6 w-6 animate-spin text-ink-400" />
               </div>
+            ) : productsError ? (
+              <p className="py-20 text-center text-sm text-red-700">
+                {productsError}
+              </p>
             ) : products.length === 0 ? (
               <div className="py-20 text-center">
                 <Package className="mx-auto h-8 w-8 text-ink-300" />
