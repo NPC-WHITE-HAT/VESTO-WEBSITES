@@ -18,6 +18,7 @@ export function ProductPage({
   const [product, setProduct] = useState<Product | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const { addItem, items: cartItems } = useCart();
   const [size, setSize] = useState('');
   const [color, setColor] = useState(product?.colors[0]?.name ?? '');
@@ -42,6 +43,7 @@ export function ProductPage({
     async function loadProducts() {
       setLoading(true);
       setProduct(undefined);
+      setLoadError('');
 
       try {
         const data = await getProducts();
@@ -54,6 +56,7 @@ export function ProductPage({
         if (!cancelled) {
           setProducts([]);
           setProduct(undefined);
+          setLoadError('Product details and inventory could not be loaded. Please try again later.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -92,7 +95,9 @@ export function ProductPage({
   if (!product) {
     return (
       <div className="container-vesto flex min-h-[60vh] flex-col items-center justify-center pt-16 text-center md:pt-20">
-        <p className="text-sm text-ink-500">Product not found.</p>
+        <p role={loadError ? 'alert' : undefined} className="text-sm text-ink-500">
+          {loadError || 'Product not found.'}
+        </p>
         <Link to="/shop" className="btn-primary mt-6">
           Back to Shop
         </Link>
@@ -121,6 +126,7 @@ export function ProductPage({
   const stockStatus = getStockStatus(selectedStock);
   const sizeMissing = hasSizeVariants(product) && !size;
   const outOfStock = sizeMissing || remainingStock < 1;
+  const resolvedSizes = product.sizes;
 
   return (
     <div className="pt-16 md:pt-20">
@@ -204,7 +210,7 @@ export function ProductPage({
               Size: <span className="text-ink-800">{size}</span>
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {product.sizes.map((s) => {
+              {resolvedSizes.map((s) => {
                 const available = getVariantStock(product, s, color);
                 return (
                 <button
@@ -222,7 +228,7 @@ export function ProductPage({
                 </button>
                 );
               })}
-              {hasSizeVariants(product) && product.sizes.length === 0 && (
+              {hasSizeVariants(product) && resolvedSizes.length === 0 && (
                 <p className="text-xs text-ink-500">
                   Size inventory has not been configured for this product yet.
                 </p>

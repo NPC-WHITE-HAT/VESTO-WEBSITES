@@ -82,7 +82,8 @@ enabled: true,
     const id = String(row.id);
     const legacySizes: string[] = Array.isArray(row.sizes) ? row.sizes : [];
     const productVariants = rowsByProduct.get(id) ?? [];
-    const sizeRequired = legacySizes.length > 0;
+    const sizeRequired =
+  legacySizes.length > 0 || productVariants.length > 0;
     const enabledSizes = [...new Set(
       productVariants.filter((variant) => variant.enabled).map((variant) => variant.size),
     )].sort((a, b) => {
