@@ -50,9 +50,9 @@ export async function getInventorySnapshot(
         .select('id, stock_quantity, sizes')
         .in('id', uniqueIds),
       supabase
-        .from('product_variant_inventory')
-        .select('product_id, size, color, available_quantity, enabled')
-        .in('product_id', uniqueIds),
+  .from('product_variant_inventory')
+  .select('product_id, size, color, stock_quantity')
+  .in('product_id', uniqueIds),
     ]);
 
   if (productError) throw productError;
@@ -65,8 +65,8 @@ export async function getInventorySnapshot(
     const variant = {
       size: String(row.size),
       color: String(row.color ?? ''),
-      availableQuantity: Number(row.available_quantity ?? 0),
-      enabled: Boolean(row.enabled),
+      availableQuantity: Number(row.stock_quantity ?? 0),
+enabled: true,
     };
     const rows = rowsByProduct.get(productId) ?? [];
     rows.push(variant);
