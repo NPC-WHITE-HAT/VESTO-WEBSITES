@@ -174,17 +174,6 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-950/35 via-transparent to-ink-950/10" />
           <div className="container-vesto absolute inset-0 z-10 flex items-end pb-20 pt-28 md:items-center md:pb-12">
             <div className="max-w-2xl text-white">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#D7C29B]">
-                Contemporary menswear · Perambur, Chennai
-              </p>
-              <h1 className="mt-5 font-display text-5xl font-medium leading-[0.92] tracking-[-0.03em] sm:text-6xl md:text-8xl">
-                Considered style.
-                <br />
-                Everyday ease.
-              </h1>
-              <p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 md:text-base">
-                Thoughtful fits and modern essentials, made to feel like your own.
-              </p>
               <Link
                 to="/shop"
                 className="pointer-events-auto mt-8 inline-flex items-center gap-3 border border-[#D7C29B] bg-[#B79A66] px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-900 transition-colors hover:bg-[#D7C29B]"
@@ -246,17 +235,6 @@ export function HomePage({ onQuickView }: { onQuickView: (p: Product) => void })
           <div className="absolute inset-0 bg-gradient-to-r from-ink-950/75 via-ink-950/35 to-ink-950/5" />
           <div className="container-vesto relative z-10">
             <div className="max-w-2xl text-white">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#D7C29B]">
-                Contemporary menswear · Perambur, Chennai
-              </p>
-              <h1 className="mt-5 font-display text-5xl font-medium leading-[0.92] tracking-[-0.03em] sm:text-6xl md:text-8xl">
-                Considered style.
-                <br />
-                Everyday ease.
-              </h1>
-              <p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 md:text-base">
-                Thoughtful fits and modern essentials, made to feel like your own.
-              </p>
               <Link
                 to="/shop"
                 className="mt-8 inline-flex items-center gap-3 border border-[#D7C29B] bg-[#B79A66] px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-900 transition-colors hover:bg-[#D7C29B]"
