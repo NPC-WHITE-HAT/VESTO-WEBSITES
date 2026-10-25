@@ -105,12 +105,14 @@ export function ContactPage() {
               <a href={GOOGLE_MAPS_URL} target="_blank" rel="noreferrer" className="block">
                 <div className="aspect-square md:aspect-[4/5]">
                   <iframe
-                    title="VESTO location map"
-                    src="https://www.google.com/maps?q=Periyar+Nagar+West+Perambur+Chennai+600082&output=embed"
-                    className="h-full w-full grayscale invert-[0.92] hue-rotate-180"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
+  title="VESTO CLOTHING store location"
+  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3885.738255419412!2d80.2278955!3d13.115760999999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a52653f285bd45b%3A0x9ca55322c1123461!2sVESTO%20CLOTHING!5e0!3m2!1sen!2sin!4v1792930133807!5m2!1sen!2sin"
+  className="h-full w-full"
+  style={{ border: 0 }}
+  allowFullScreen
+  loading="lazy"
+  referrerPolicy="strict-origin-when-cross-origin"
+/>
                 </div>
               </a>
             </div>
