@@ -10,8 +10,7 @@ export const STORE_ADDRESS = {
 };
 export const INSTAGRAM_HANDLE = 'vesto_in';
 export const INSTAGRAM_URL = 'https://instagram.com/vesto_in';
-export const GOOGLE_MAPS_URL =
-  'https://www.google.com/maps/search/?api=1&query=70+Feet+Road+Periyar+Nagar+West+Perambur+Chennai+600082';
+export const GOOGLE_MAPS_URL = 'https://maps.app.goo.gl/r471PRvtrb3r1wNu5';
 
 export const formatPrice = (n: number) =>
   '₹' + n.toLocaleString('en-IN');
