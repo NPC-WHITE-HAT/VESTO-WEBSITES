@@ -55,8 +55,20 @@ export async function getInventorySnapshot(
   .in('product_id', uniqueIds),
     ]);
 
-  if (productError) throw productError;
-  if (variantError) throw variantError;
+  if (productError) {
+    console.error('Could not load products for inventory snapshot:', {
+      productIds: uniqueIds,
+      error: productError,
+    });
+    throw productError;
+  }
+  if (variantError) {
+    console.error('Could not load product variant inventory:', {
+      productIds: uniqueIds,
+      error: variantError,
+    });
+    throw variantError;
+  }
 
   const rowsByProduct = new Map<string, ProductVariantInventory[]>();
   const variantStocks: Record<string, number> = {};
