@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getVariantStock, hasSizeVariants, type InventorySnapshot } from '@/lib/inventory';
 import type { CartItem, Product } from '@/types';
 
@@ -35,7 +35,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
-  const addItem: CartContextValue['addItem'] = (product, size, color, qty = 1) => {
+  const addItem = useCallback<CartContextValue['addItem']>((product, size, color, qty = 1) => {
     if (hasSizeVariants(product) && !size) return false;
     const variantQuantity = items
       .filter((item) =>
@@ -72,9 +72,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [...prev, { product, size, color, quantity: qty }];
     });
     return true;
-  };
+  }, [items]);
 
-  const updateQty: CartContextValue['updateQty'] = (index, qty) => {
+  const updateQty = useCallback<CartContextValue['updateQty']>((index, qty) => {
     setItems((prev) => {
       if (qty <= 0) return prev.filter((_, i) => i !== index);
       if (!Number.isInteger(qty)) return prev;
@@ -98,9 +98,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       next[index] = { ...next[index], quantity: qty };
       return next;
     });
-  };
+  }, []);
 
-  const updateStock: CartContextValue['updateStock'] = (inventory) => {
+  const updateStock = useCallback<CartContextValue['updateStock']>((inventory) => {
     setItems((prev) => {
       return prev.map((item) => {
         const productInventory = inventory.products[item.product.id];
@@ -118,13 +118,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         };
       });
     });
-  };
+  }, []);
 
-  const removeItem: CartContextValue['removeItem'] = (index) => {
+  const removeItem = useCallback<CartContextValue['removeItem']>((index) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const clear = () => setItems([]);
+  const clear = useCallback(() => setItems([]), []);
 
   const value = useMemo<CartContextValue>(
     () => ({
@@ -137,7 +137,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem,
       clear,
     }),
-    [items],
+    [items, addItem, updateQty, updateStock, removeItem, clear],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

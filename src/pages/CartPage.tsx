@@ -5,11 +5,14 @@ import { formatPrice } from '@/data/products';
 import { Link, navigate } from '@/router';
 import { getInventorySnapshot, hasSizeVariants, variantStockKey } from '@/lib/inventory';
 
+const STOCK_CHECK_TIMEOUT_MS = 15000;
+
 export function CartPage() {
   const { items, subtotal, updateQty, updateStock, removeItem, count } = useCart();
   const [availableStock, setAvailableStock] = useState<Record<string, number>>({});
   const [stockLoading, setStockLoading] = useState(true);
   const [stockError, setStockError] = useState('');
+  const [stockRetry, setStockRetry] = useState(0);
   const productIdsKey = useMemo(
     () => [...new Set(items.map((item) => item.product.id))].join(','),
     [items],
@@ -17,11 +20,26 @@ export function CartPage() {
 
   useEffect(() => {
     let active = true;
+    let refreshing = false;
     const productIds = productIdsKey ? productIdsKey.split(',') : [];
 
     const refreshStock = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      let timeoutId: number | undefined;
+
+      setStockLoading(true);
+      setStockError('');
       try {
-        const currentInventory = await getInventorySnapshot(productIds);
+        const currentInventory = await Promise.race([
+          getInventorySnapshot(productIds),
+          new Promise<never>((_, reject) => {
+            timeoutId = window.setTimeout(
+              () => reject(new Error('Stock verification timed out.')),
+              STOCK_CHECK_TIMEOUT_MS,
+            );
+          }),
+        ]);
         if (!active) return;
         const currentStock = { ...currentInventory.variants };
         for (const [productId, product] of Object.entries(currentInventory.products)) {
@@ -35,21 +53,26 @@ export function CartPage() {
       } catch (error) {
         console.error('Could not refresh cart inventory:', error);
         if (active) {
-          setStockError('Could not verify current stock. Please try again before checkout.');
+          setStockError(
+            error instanceof Error && error.message === 'Stock verification timed out.'
+              ? 'Stock verification timed out. Check your connection and retry before checkout.'
+              : 'Could not verify current stock. Please retry before checkout.',
+          );
         }
       } finally {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        refreshing = false;
         if (active) setStockLoading(false);
       }
     };
 
-    setStockLoading(true);
     void refreshStock();
     const interval = window.setInterval(() => void refreshStock(), 15000);
     return () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [productIdsKey, updateStock]);
+  }, [productIdsKey, stockRetry, updateStock]);
 
   const exceedsStock = items.some((item) => {
     const key = hasSizeVariants(item.product)
@@ -215,7 +238,17 @@ export function CartPage() {
                 <p className="mt-4 text-xs text-ink-500">Checking current stock…</p>
               )}
               {stockError && (
-                <p role="alert" className="mt-4 text-xs text-red-700">{stockError}</p>
+                <div className="mt-4">
+                  <p role="alert" className="text-xs text-red-700">{stockError}</p>
+                  <button
+                    type="button"
+                    onClick={() => setStockRetry((retry) => retry + 1)}
+                    disabled={stockLoading}
+                    className="mt-2 text-xs font-semibold text-ink-900 underline disabled:opacity-50"
+                  >
+                    Retry stock check
+                  </button>
+                </div>
               )}
               <button
                 type="button"
